@@ -1,2 +1,2 @@
 # Himgiri-frontend
-DPS: Store Management System
+DPS: Store Management System .
