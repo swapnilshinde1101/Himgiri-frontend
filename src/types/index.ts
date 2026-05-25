@@ -44,6 +44,7 @@ export interface CreateItemRequest {
   gradeId: string;
   stockQty: number;
   storageStatus: StorageStatus;
+  isActive: boolean;
 }
 
 // ── Cart (frontend only) ──

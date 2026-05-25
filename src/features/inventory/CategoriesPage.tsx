@@ -54,15 +54,38 @@ export default function CategoriesPage() {
         onEdit={(c) => { setSelectedCat(c); setIsModalOpen(true); }}
         onDelete={(c) => { setCatToDelete(c); setIsDeleteModalOpen(true); }}
         columns={[
-          { header: 'Name', accessor: 'name' },
-          { header: 'HSN Code', accessor: 'hsnCode' },
+          { header: 'Order', accessor: 'displayOrder', className: 'w-16' },
+          { 
+            header: 'Name', 
+            accessor: (c) => (
+              <div>
+                <div className="font-medium text-gray-900">{c.name}</div>
+                {c.description && (
+                  <div className="text-[10px] text-gray-500 italic">{c.description}</div>
+                )}
+              </div>
+            )
+          },
+          { header: 'HSN', accessor: 'hsnCode' },
           { 
             header: 'GST Rates', 
             accessor: (c) => (
-              <div className="flex items-center gap-2">
-                <Badge variant="info">GST {c.gstPercent}%</Badge>
-                <span className="text-[10px] text-gray-400 font-bold uppercase">C:{c.cgstPercent}% S:{c.sgstPercent}%</span>
+              <div className="flex flex-col gap-1">
+                <Badge variant={c.isTaxable ? 'info' : 'secondary'}>
+                  {c.isTaxable ? `GST ${c.gstPercent}%` : 'Exempt'}
+                </Badge>
+                {c.isTaxable && (
+                  <span className="text-[10px] text-gray-400 font-bold uppercase">C:{c.cgstPercent}% S:{c.sgstPercent}%</span>
+                )}
               </div>
+            )
+          },
+          {
+            header: 'Status',
+            accessor: (c) => (
+              <Badge variant={c.isActive ? 'success' : 'danger'}>
+                {c.isActive ? 'Active' : 'Inactive'}
+              </Badge>
             )
           }
         ]}

@@ -4,6 +4,7 @@ import { masterDataService, GradeDto } from '../../services/masterDataService';
 import DataTable from '../../components/shared/DataTable';
 import { AddButton } from '../../components/shared/ActionButtons';
 import ActionModal from '../../components/shared/ActionModal';
+import Badge from '../../components/shared/Badge';
 import toast from 'react-hot-toast';
 import MasterDataModal from './components/MasterDataModal';
 import { BaseRequest } from '../../types';
@@ -53,9 +54,27 @@ export default function GradesPage() {
         onEdit={(g) => { setSelectedGrade(g); setIsModalOpen(true); }}
         onDelete={(g) => { setGradeToDelete(g); setIsDeleteModalOpen(true); }}
         columns={[
-          { header: 'Name', accessor: 'name' },
+          { header: 'Order', accessor: 'displayOrder', className: 'w-16' },
+          { 
+            header: 'Name', 
+            accessor: (g) => (
+              <div>
+                <div className="font-medium text-gray-900">{g.name}</div>
+                {g.description && (
+                  <div className="text-[10px] text-gray-500 italic">{g.description}</div>
+                )}
+              </div>
+            )
+          },
           { header: 'Short Name', accessor: 'shortName' },
-          { header: 'Display Order', accessor: 'displayOrder' },
+          {
+            header: 'Status',
+            accessor: (g) => (
+              <Badge variant={g.isActive ? 'success' : 'danger'}>
+                {g.isActive ? 'Active' : 'Inactive'}
+              </Badge>
+            )
+          }
         ]}
       />
 

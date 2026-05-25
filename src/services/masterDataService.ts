@@ -11,10 +11,16 @@ export interface GradeDto {
 export interface CategoryDto {
   id: string;
   name: string;
+  description?: string;
+  isActive: boolean;
+  displayOrder: number;
+  parentCategoryId?: string;
+  parentCategoryName?: string;
   hsnCode: string;
   gstPercent: number;
   cgstPercent: number;
   sgstPercent: number;
+  isTaxable: boolean;
 }
 
 export const masterDataService = {

@@ -87,30 +87,52 @@ export default function ItemsPage() {
         onDelete={handleDeleteClick}
         columns={[
           { 
-            header: 'Item', 
+            header: 'Item Details', 
             accessor: (item) => (
               <div className="flex items-center gap-3">
-                {item.imageUrl && (
-                  <img src={item.imageUrl} alt={item.name} className="h-10 w-10 rounded-lg object-cover bg-gray-50 border border-gray-100 shadow-sm" />
-                )}
+                <div className="h-10 w-10 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200">
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-gray-400">
+                      <span className="text-xs font-bold">{item.name.substring(0, 2).toUpperCase()}</span>
+                    </div>
+                  )}
+                </div>
                 <div>
-                  <div className="font-bold text-gray-900 leading-none mb-1">{item.name}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-himgiri-secondary-dark/50 font-bold">{item.categoryName}</div>
+                  <div className="font-semibold text-gray-900 leading-tight">{item.name}</div>
+                  <div className="text-[10px] text-gray-500 mt-0.5 flex gap-2">
+                    <span className="bg-gray-100 px-1.5 py-0.5 rounded uppercase tracking-wider">{item.categoryName}</span>
+                    <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">{item.gradeName}</span>
+                  </div>
                 </div>
               </div>
-            ) 
+            )
           },
-          { header: 'Grade', accessor: 'gradeName' },
           { 
             header: 'Price', 
+            accessor: (item) => <span className="font-mono font-bold text-gray-700">₹{item.price.toFixed(2)}</span>
+          },
+          { 
+            header: 'Inventory', 
             accessor: (item) => (
-              <span className="font-bold text-gray-900">₹{item.price.toLocaleString()}</span>
-            ) 
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-sm font-bold ${item.stockQty <= 5 ? 'text-red-600' : 'text-green-600'}`}>
+                    {item.stockQty}
+                  </span>
+                  <span className="text-[10px] text-gray-400 uppercase font-bold">in stock</span>
+                </div>
+                <Badge variant={item.storageStatus === 'InStock' ? 'success' : 'warning'}>
+                  {item.storageStatus === 'InStock' ? 'Ready' : 'Pre-Order'}
+                </Badge>
+              </div>
+            )
           },
           {
             header: 'Status',
             accessor: (item) => (
-              <Badge variant={item.isActive ? 'success' : 'gray'}>
+              <Badge variant={item.isActive ? 'success' : 'danger'}>
                 {item.isActive ? 'Active' : 'Inactive'}
               </Badge>
             )

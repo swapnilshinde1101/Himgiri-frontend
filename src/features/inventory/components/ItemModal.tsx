@@ -20,7 +20,8 @@ const itemSchema = z.object({
   categoryId: z.string().min(1, 'Category is required'),
   gradeId: z.string().min(1, 'Grade is required'),
   stockQty: z.coerce.number().min(0, 'Stock cannot be negative'),
-  storageStatus: z.enum(['InStock', 'PreOrder']),
+  storageStatus: z.coerce.number(),
+  isActive: z.boolean().default(true),
 });
 
 type ItemFormData = z.infer<typeof itemSchema>;
@@ -43,9 +44,10 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
   } = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
     defaultValues: {
-      storageStatus: 'InStock',
+      storageStatus: 0,
       stockQty: 0,
-      price: 0
+      price: 0,
+      isActive: true
     }
   });
 
@@ -75,7 +77,8 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
           categoryId: item.categoryId,
           gradeId: item.gradeId,
           stockQty: item.stockQty,
-          storageStatus: item.storageStatus,
+          storageStatus: item.storageStatus === 'PreOrder' ? 1 : 0,
+          isActive: item.isActive ?? true
         });
       } else {
         reset({
@@ -84,7 +87,8 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
           imageUrl: '',
           price: 0,
           stockQty: 0,
-          storageStatus: 'InStock',
+          storageStatus: 0,
+          isActive: true
         });
       }
     }
@@ -185,6 +189,36 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
               error={errors.price?.message}
               {...register('price')}
             />
+
+            <Input
+              label="Initial Stock"
+              type="number"
+              placeholder="0"
+              error={errors.stockQty?.message}
+              {...register('stockQty')}
+            />
+
+            <Select
+              label="Storage Status"
+              options={[
+                { label: 'In Stock', value: 0 },
+                { label: 'Pre-Order', value: 1 }
+              ]}
+              error={errors.storageStatus?.message}
+              {...register('storageStatus')}
+            />
+
+            <div className="flex items-center gap-3 pt-8">
+              <input 
+                type="checkbox" 
+                id="isActive" 
+                {...register('isActive')}
+                className="w-5 h-5 text-himgiri-primary border-gray-300 rounded focus:ring-himgiri-primary"
+              />
+              <label htmlFor="isActive" className="text-sm font-medium text-gray-700 cursor-pointer">
+                Is Active (Visible to Customers)
+              </label>
+            </div>
           </div>
 
           {/* Footer Actions */}

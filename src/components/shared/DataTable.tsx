@@ -27,7 +27,7 @@ interface DataTableProps<T> {
   currentPage?: number;
   onPageChange?: (page: number) => void;
   onSearch?: (term: string) => void;
-  getSuggestions?: (term: string) => Promise<string[]>; // NEW: Support dropdown suggestions
+  getSuggestions?: (term: string) => Promise<string[]>;
   title?: string;
   actions?: (item: T) => React.ReactNode;
 }
@@ -185,7 +185,7 @@ export default function DataTable<T extends { id: string | number }>({
                     <div className="h-16 w-16 bg-gray-50 rounded-3xl flex items-center justify-center mb-4">
                         <Search className="h-8 w-8 text-gray-200" />
                     </div>
-                    <p className="text-gray-400 font-bold">No records found matching your search.</p>
+                    <p className="text-gray-400 font-bold">No records found.</p>
                   </div>
                 </td>
               </tr>
