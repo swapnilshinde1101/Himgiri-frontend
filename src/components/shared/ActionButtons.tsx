@@ -1,11 +1,9 @@
-import React from 'react';
 import { 
   Plus, 
   Edit2, 
   Trash2, 
   Download, 
   Search, 
-  Filter, 
   Save, 
   ArrowLeft 
 } from 'lucide-react';

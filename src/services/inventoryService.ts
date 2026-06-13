@@ -1,5 +1,5 @@
 import api from './api';
-import type { Item, CreateItemRequest, ApiResponse, BaseRequest } from '../types';
+import type { Item, CreateItemRequest, ApiResponse, BaseRequest, StockLog, BulkInwardRequest, CompletedStats, DashboardStats } from '../types';
 
 export const inventoryService = {
   getItems: async (request: BaseRequest): Promise<ApiResponse<Item[]>> => {
@@ -27,8 +27,55 @@ export const inventoryService = {
     return data.data;
   },
 
-  updateStock: async (id: string, newQty: number, reason: string): Promise<boolean> => {
-    const { data } = await api.patch<ApiResponse<boolean>>(`/items/${id}/stock`, { newQty, reason });
+  updateStock: async (id: string, adjustmentQty: number, reason: string, lastSeenStockQty?: number): Promise<boolean> => {
+    const { data } = await api.patch<ApiResponse<boolean>>(`/items/${id}/stock`, { adjustmentQty, reason, lastSeenStockQty });
     return data.data;
+  },
+
+  getStockLogs: async (id: string): Promise<ApiResponse<StockLog[]>> => {
+    const { data } = await api.get<ApiResponse<StockLog[]>>(`/items/${id}/stock-logs`);
+    return data;
+  },
+
+  getAllStockLogs: async (onlyCompleted?: boolean): Promise<ApiResponse<StockLog[]>> => {
+    const { data } = await api.get<ApiResponse<StockLog[]>>('/items/stock/logs', {
+      params: onlyCompleted !== undefined ? { onlyCompleted } : undefined
+    });
+    return data;
+  },
+
+  getLowStock: async (): Promise<ApiResponse<Item[]>> => {
+    const { data } = await api.get<ApiResponse<Item[]>>('/items/stock/low');
+    return data;
+  },
+
+  getOutOfStock: async (): Promise<ApiResponse<Item[]>> => {
+    const { data } = await api.get<ApiResponse<Item[]>>('/items/stock/out');
+    return data;
+  },
+
+  bulkInwardStock: async (request: BulkInwardRequest): Promise<boolean> => {
+    const { data } = await api.patch<ApiResponse<boolean>>('/items/stock/bulk-inward', request);
+    return data.data;
+  },
+
+  bulkToggleActive: async (itemIds: string[], isActive: boolean): Promise<boolean> => {
+    const { data } = await api.patch<ApiResponse<boolean>>('/items/bulk-status', { itemIds, isActive });
+    return data.data;
+  },
+
+  bulkUpdateCategory: async (itemIds: string[], categoryId: string): Promise<boolean> => {
+    const { data } = await api.patch<ApiResponse<boolean>>('/items/bulk-category', { itemIds, categoryId });
+    return data.data;
+  },
+
+  getCompletedStats: async (): Promise<ApiResponse<CompletedStats>> => {
+    const { data } = await api.get<ApiResponse<CompletedStats>>('/items/completed/stats');
+    return data;
+  },
+
+  getDashboardStats: async (): Promise<ApiResponse<DashboardStats>> => {
+    const { data } = await api.get<ApiResponse<DashboardStats>>('/items/dashboard/stats');
+    return data;
   },
 };

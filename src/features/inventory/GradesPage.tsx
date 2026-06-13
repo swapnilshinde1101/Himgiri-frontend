@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { masterDataService, GradeDto } from '../../services/masterDataService';
 import DataTable from '../../components/shared/DataTable';
@@ -6,7 +6,7 @@ import { AddButton } from '../../components/shared/ActionButtons';
 import ActionModal from '../../components/shared/ActionModal';
 import Badge from '../../components/shared/Badge';
 import toast from 'react-hot-toast';
-import MasterDataModal from './components/MasterDataModal';
+import GradeModal from './components/GradeModal';
 import { BaseRequest } from '../../types';
 
 export default function GradesPage() {
@@ -78,8 +78,7 @@ export default function GradesPage() {
         ]}
       />
 
-      <MasterDataModal
-        type="grade"
+      <GradeModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         data={selectedGrade}

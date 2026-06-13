@@ -1,7 +1,6 @@
-import React from 'react';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import TabManager from '../../components/shared/TabManager';
-import { Package, Database, School, Tags } from 'lucide-react';
+import { Package, Database, School, Tags, History } from 'lucide-react';
 
 export default function InventoryDashboard() {
   const location = useLocation();
@@ -12,6 +11,7 @@ export default function InventoryDashboard() {
     { id: 'stock', label: 'Stock', icon: Database, path: '/admin/inventory/stock' },
     { id: 'grades', label: 'Grades', icon: School, path: '/admin/inventory/grades' },
     { id: 'categories', label: 'Categories', icon: Tags, path: '/admin/inventory/categories' },
+    { id: 'history', label: 'Stock History', icon: History, path: '/admin/inventory/history' },
   ];
 
   // Map current path to tab index

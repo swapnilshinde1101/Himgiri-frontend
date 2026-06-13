@@ -5,6 +5,8 @@ export interface GradeDto {
   id: string;
   name: string;
   shortName: string;
+  description: string;
+  isActive: boolean;
   displayOrder: number;
 }
 

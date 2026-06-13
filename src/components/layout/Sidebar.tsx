@@ -12,6 +12,8 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { clsx } from 'clsx';
 import { Menu, Transition } from '@headlessui/react';
+import { useQuery } from '@tanstack/react-query';
+import { inventoryService } from '../../services/inventoryService';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -21,6 +23,14 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, isCollapsed }: SidebarProps) {
   const user = useAuthStore((s) => s.user);
+
+  const { data: lowStockData } = useQuery({
+    queryKey: ['lowStockCount'],
+    queryFn: () => inventoryService.getLowStock(),
+    refetchInterval: 30000,
+    enabled: !!user,
+  });
+  const lowStockCount = lowStockData?.data?.length || 0;
 
   const menuItems = [
     { 
@@ -107,11 +117,31 @@ export default function Sidebar({ isOpen, onClose, isCollapsed }: SidebarProps) 
                     : "text-himgiri-secondary hover:bg-himgiri-secondary-light hover:text-himgiri-primary"
                 )}
               >
-                <item.icon className={clsx(
-                  "h-5 w-5 transition-transform group-hover:scale-110 flex-shrink-0",
-                  !isCollapsed && "mr-3"
-                )} />
-                {!isCollapsed && <span className="whitespace-nowrap animate-in fade-in duration-500">{item.label}</span>}
+                {({ isActive }) => (
+                  <>
+                    <div className="relative flex items-center justify-center">
+                      <item.icon className={clsx(
+                        "h-5 w-5 transition-transform group-hover:scale-110 flex-shrink-0",
+                        !isCollapsed && "mr-3"
+                      )} />
+                      {isCollapsed && item.label === 'Inventory' && lowStockCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                      )}
+                    </div>
+                    {!isCollapsed && <span className="whitespace-nowrap animate-in fade-in duration-500">{item.label}</span>}
+                    {!isCollapsed && item.label === 'Inventory' && lowStockCount > 0 && (
+                      <span className={clsx(
+                        "ml-auto text-[10px] font-black px-2 py-0.5 rounded-full transition-colors",
+                        isActive ? "bg-white text-himgiri-primary" : "bg-red-500 text-white"
+                      )}>
+                        {lowStockCount}
+                      </span>
+                    )}
+                  </>
+                )}
               </NavLink>
             ))}
           </nav>

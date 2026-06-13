@@ -12,7 +12,7 @@ import Button from './Button';
 import { EditButton, DeleteButton } from './ActionButtons';
 
 export interface Column<T> {
-  header: string;
+  header: string | React.ReactNode;
   accessor: keyof T | ((item: T) => React.ReactNode);
   className?: string;
 }
@@ -191,33 +191,68 @@ export default function DataTable<T extends { id: string | number }>({
               </tr>
             ) : (
               data.map((item) => (
-                <tr key={item.id} className="hover:bg-himgiri-primary/[0.02] transition-colors group">
-                  {columns.map((col, idx) => (
-                    <td key={idx} className={clsx("px-6 py-5 text-sm font-bold text-gray-700", col.className)}>
-                      {typeof col.accessor === 'function' 
-                        ? col.accessor(item) 
-                        : (item[col.accessor] as React.ReactNode)}
-                    </td>
-                  ))}
-                  {(onEdit || onDelete || actions) && (
-                    <td className="px-6 py-5 text-right">
-                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all text-nowrap transform translate-x-2 group-hover:translate-x-0">
-                        {actions?.(item)}
-                        {onEdit && (
-                          <EditButton onClick={() => onEdit(item)} />
-                        )}
-                        {onDelete && (
-                          <DeleteButton onClick={() => onDelete(item)} />
-                        )}
-                      </div>
-                      <div className="group-hover:hidden flex justify-end">
-                         <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
-                            <MoreVertical className="h-4 w-4 text-gray-400" />
-                         </div>
-                      </div>
-                    </td>
-                  )}
-                </tr>
+                // <tr key={item.id} className="hover:bg-himgiri-primary/[0.02] transition-colors group">
+                //   {columns.map((col, idx) => (
+                //     <td key={idx} className={clsx("px-6 py-5 text-sm font-bold text-gray-700", col.className)}>
+                //       {typeof col.accessor === 'function' 
+                //         ? col.accessor(item) 
+                //         : (item[col.accessor] as React.ReactNode)}
+                //     </td>
+                //   ))}
+                //   {(onEdit || onDelete || actions) && (
+                //     <td className="px-6 py-5 text-right">
+                //       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all text-nowrap transform translate-x-2 group-hover:translate-x-0">
+                //         {actions?.(item)}
+                //         {onEdit && (
+                //           <EditButton onClick={() => onEdit(item)} />
+                //         )}
+                //         {onDelete && (
+                //           <DeleteButton onClick={() => onDelete(item)} />
+                //         )}
+                //       </div>
+                //       <div className="group-hover:hidden flex justify-end">
+                //          <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
+                //             <MoreVertical className="h-4 w-4 text-gray-400" />
+                //          </div>
+                //       </div>
+                //     </td>
+                //   )}
+                // </tr>
+
+                <tr key={item.id} className="group hover:bg-himgiri-primary/[0.02] transition-colors">
+    {columns.map((col, idx) => (
+      <td key={idx} className={clsx("px-6 py-5 text-sm font-bold text-gray-700", col.className)}>
+        {typeof col.accessor === 'function' 
+          ? col.accessor(item) 
+          : (item[col.accessor] as React.ReactNode)}
+      </td>
+    ))}
+    {(onEdit || onDelete || actions) && (
+      <td className="px-6 py-5 text-right relative min-w-[140px]">
+        <div className="flex justify-end items-center">
+          
+          {/* Action Buttons Container */}
+          <div className="absolute right-6 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 text-nowrap transform translate-x-2 group-hover:translate-x-0 z-10">
+            {actions?.(item)}
+            {onEdit && (
+              <EditButton onClick={() => onEdit(item)} />
+            )}
+            {onDelete && (
+              <DeleteButton onClick={() => onDelete(item)} />
+            )}
+          </div>
+          
+          {/* Three Dots Icon Container */}
+          <div className="opacity-100 group-hover:opacity-0 transition-opacity duration-200 flex justify-end">
+             <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
+                <MoreVertical className="h-4 w-4 text-gray-400" />
+             </div>
+          </div>
+
+        </div>
+      </td>
+    )}
+  </tr>
               ))
             )}
           </tbody>
