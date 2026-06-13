@@ -144,6 +144,16 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
   // ── Mutations ──
   const mutation = useMutation({
     mutationFn: async (data: any) => {
+      // ── Price + GST <= MRP Validation ──
+      const category = categories?.find(c => c.id === data.categoryId);
+      if (category) {
+        const gstPercent = category.isTaxable ? category.gstPercent : 0;
+        const sellingPriceWithGst = data.price * (1 + gstPercent / 100);
+        if (sellingPriceWithGst > data.mrp) {
+          throw new Error(`Selling Price inclusive of GST (₹${sellingPriceWithGst.toFixed(2)}) cannot exceed MRP (₹${data.mrp.toFixed(2)})`);
+        }
+      }
+
       const finalUnit = data.unit === '__custom__' ? data.customUnit : data.unit;
       const finalStockQty = isEdit ? (item?.stockQty ?? 0) : 0;
  

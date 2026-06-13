@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { masterDataService, CategoryDto } from '../../../services/masterDataService';
 import Input from '../../../components/shared/forms/Input';
+import Select from '../../../components/shared/forms/Select';
 import Button from '../../../components/shared/Button';
 import toast from 'react-hot-toast';
 
@@ -15,7 +16,9 @@ const categorySchema = z.object({
   isActive: z.boolean().default(true),
   displayOrder: z.coerce.number().min(0),
   hsnCode: z.string().min(1, 'HSN Code is required').max(20),
-  gstPercent: z.coerce.number().min(0).max(100),
+  gstPercent: z.preprocess((val) => val === '' ? 0 : val, z.coerce.number().refine(val => [0, 5, 12, 18, 28].includes(val), {
+    message: 'GST rate must be a standard rate (0, 5, 12, 18, or 28%)'
+  })),
   isTaxable: z.boolean().default(true)
 });
 
@@ -127,7 +130,18 @@ export default function CategoryModal({ isOpen, onClose, data }: Props) {
 
             {isTaxable && (
               <div className="md:col-span-2">
-                <Input label="GST Rate (%)" type="number" step="0.01" error={errors.gstPercent?.message?.toString()} {...register('gstPercent')} />
+                <Select
+                  label="GST Rate (%)"
+                  error={errors.gstPercent?.message?.toString()}
+                  {...register('gstPercent')}
+                  options={[
+                    { value: '0', label: '0% (Exempt)' },
+                    { value: '5', label: '5%' },
+                    { value: '12', label: '12%' },
+                    { value: '18', label: '18%' },
+                    { value: '28', label: '28%' }
+                  ]}
+                />
               </div>
             )}
           </div>
