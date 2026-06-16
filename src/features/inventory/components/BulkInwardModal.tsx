@@ -96,11 +96,11 @@ export default function BulkInwardModal({ isOpen, onClose, selectedItems, onSucc
       
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col border border-gray-100">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-blue-600 flex-shrink-0">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-himgiri-primary flex-shrink-0">
           <h3 className="text-xl font-bold text-white">
             Update Stock
           </h3>
-          <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-white/80 hover:text-white hover:rotate-90 transition-transform focus:outline-none">
             <X className="h-6 w-6" />
           </button>
         </div>
@@ -122,16 +122,16 @@ export default function BulkInwardModal({ isOpen, onClose, selectedItems, onSucc
           </div>
 
           {/* Items Table */}
-          <div className="border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
+          <div className="border border-gray-100 rounded-xl overflow-auto max-h-[380px] shadow-sm custom-scrollbar">
+            <table className="w-full min-w-[650px] text-left border-collapse text-sm">
+              <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 sticky top-0 z-10">
                 <tr>
-                  <th className="px-4 py-3">Item details</th>
-                  <th className="px-4 py-3 text-center">Target</th>
-                  <th className="px-4 py-3 text-center">In-Stock</th>
-                  <th className="px-4 py-3 text-center">Pending</th>
-                  <th className="px-4 py-3 text-center w-28">Update Qty</th>
-                  <th className="px-4 py-3 text-center">New Qty</th>
+                  <th className="px-4 py-3 bg-gray-50">Item details</th>
+                  <th className="px-4 py-3 text-center bg-gray-50">Target</th>
+                  <th className="px-4 py-3 text-center bg-gray-50">In-Stock</th>
+                  <th className="px-4 py-3 text-center bg-gray-50">Pending</th>
+                  <th className="px-4 py-3 text-center w-28 bg-gray-50">Update Qty</th>
+                  <th className="px-4 py-3 text-center bg-gray-50">New Qty</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -186,7 +186,7 @@ export default function BulkInwardModal({ isOpen, onClose, selectedItems, onSucc
             <Button 
               type="submit" 
               isLoading={mutation.isPending}
-              className="px-8 shadow-lg bg-blue-600 hover:bg-blue-700 text-white"
+              className="px-8 shadow-lg bg-himgiri-primary hover:bg-himgiri-primary-dark text-white"
             >
               Update Stock
             </Button>

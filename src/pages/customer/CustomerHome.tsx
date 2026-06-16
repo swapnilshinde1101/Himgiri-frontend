@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { kitService } from '../../services/kitService';
 import { orderService } from '../../services/orderService';
+import { masterDataService } from '../../services/masterDataService';
 import { 
   GraduationCap, 
   ShoppingBag, 
@@ -18,7 +19,8 @@ import {
   MapPin,
   User,
   Phone,
-  Mail
+  Mail,
+  BookOpen
 } from 'lucide-react';
 import Button from '../../components/shared/Button';
 import toast from 'react-hot-toast';
@@ -56,21 +58,41 @@ export default function CustomerHome() {
     queryFn: () => kitService.getKits({ pageNumber: 1, pageSize: 100 }),
   });
 
+  const { data: gradesRes, isLoading: gradesLoading } = useQuery({
+    queryKey: ['public-grades'],
+    queryFn: () => masterDataService.getGrades({ pageNumber: 1, pageSize: 100 }),
+  });
+
   const kits = kitsRes?.data || [];
+  const grades = gradesRes?.data || [];
   
+  const getDeliveryMethodText = (item: SchoolKitItem) => {
+    return item.storageStatus === 'PreOrder' ? 'Classroom Delivery' : 'Home Delivery';
+  };
+
+  const getDeliveryMethodStyles = (item: SchoolKitItem) => {
+    return item.storageStatus === 'PreOrder'
+      ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
+      : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60';
+  };
+
   // Filter active kits
   const activeKits = kits.filter(k => k.isActive);
 
-  // Group unique grades that have active kits
-  const uniqueGrades = Array.from(
-    new Map(activeKits.map(k => [k.gradeId, { id: k.gradeId, name: k.gradeName }])).values()
-  );
+  // Get all active grades sorted by displayOrder
+  const activeGrades = grades
+    .filter(g => g.isActive)
+    .sort((a, b) => a.displayOrder - b.displayOrder);
+
+  // Map to uniqueGrades structure for compatibility with rendering
+  const uniqueGrades = activeGrades.map(g => ({ id: g.id, name: g.name }));
 
   // ── Handlers ──
   const handleGradeSelect = (gradeId: string) => {
     setSelectedGradeId(gradeId);
-    setSelectedKit(null);
-    setCartItems([]);
+    const kit = activeKits.find(k => k.gradeId === gradeId) || null;
+    setSelectedKit(kit);
+    setCartItems(kit ? kit.items : []);
   };
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
@@ -375,7 +397,7 @@ export default function CustomerHome() {
                 Select Child's Grade / Class
               </h2>
 
-              {kitsLoading ? (
+              {kitsLoading || gradesLoading ? (
                 <div className="flex items-center justify-center py-10 gap-3">
                   <Loader2 className="h-5 w-5 text-himgiri-primary animate-spin" />
                   <span className="text-sm font-bold text-gray-500">Loading grade packages...</span>
@@ -499,12 +521,31 @@ export default function CustomerHome() {
                     <div className="divide-y divide-gray-100 border border-gray-100 rounded-2xl overflow-hidden">
                       {cartItems.map((item, idx) => (
                         <div key={idx} className="p-4 flex items-center justify-between gap-4 hover:bg-gray-50/40 transition-colors">
-                          <div className="space-y-0.5">
-                            <span className="font-bold text-sm text-gray-900">{item.itemName}</span>
-                            <div className="flex items-center gap-2 text-[10px] text-gray-400 font-extrabold uppercase">
-                              <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.categoryName}</span>
-                              <span>•</span>
-                              <span>Qty: {item.quantity} {item.unit}</span>
+                          <div className="flex items-center gap-3">
+                            {/* Thumbnail */}
+                            {item.imageUrl ? (
+                              <img 
+                                src={item.imageUrl} 
+                                alt={item.itemName} 
+                                className="w-12 h-12 rounded-xl object-cover border border-gray-100 flex-shrink-0 bg-gray-50"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-xl border border-gray-100 flex-shrink-0 bg-gray-50 flex items-center justify-center text-gray-400">
+                                <BookOpen className="h-5 w-5" />
+                              </div>
+                            )}
+                            
+                            <div className="space-y-0.5">
+                              <span className="font-bold text-sm text-gray-900">{item.itemName}</span>
+                              <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400 font-extrabold uppercase">
+                                <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.categoryName}</span>
+                                <span>•</span>
+                                <span>Qty: {item.quantity} {item.unit}</span>
+                                <span>•</span>
+                                <span className={`px-1.5 py-0.5 rounded normal-case tracking-normal border ${getDeliveryMethodStyles(item)}`}>
+                                  {getDeliveryMethodText(item)}
+                                </span>
+                              </div>
                             </div>
                           </div>
                           

@@ -200,6 +200,8 @@ export interface SchoolKitItem {
   quantity: number;
   categoryName: string;
   unit: string;
+  imageUrl?: string;
+  storageStatus: StorageStatus;
 }
 
 export interface SchoolKit {
