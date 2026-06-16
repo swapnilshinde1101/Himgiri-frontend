@@ -598,14 +598,14 @@ export default function ItemsPage() {
                         {/* Inventory Info */}
                         {activeTab === 'catalog' && (
                           <div className="space-y-1">
-                            <span className="text-[10px] text-gray-405 uppercase font-black tracking-widest block mb-1">Inventory</span>
+                            <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest block mb-1">Inventory</span>
                             <div className="text-xs font-semibold text-gray-600 space-y-0.5">
                               <div>Target: <span className="font-bold text-gray-900">{item.targetQty}</span></div>
-                              <div>In-Stock: <span className={`font-bold ${item.stockQty <= 5 ? 'text-red-650' : 'text-green-650'}`}>{item.stockQty}</span></div>
+                              <div>In-Stock: <span className={`font-bold ${item.stockQty <= 5 ? 'text-red-600' : 'text-green-600'}`}>{item.stockQty}</span></div>
                               {item.targetQty - item.stockQty > 0 ? (
                                 <div className="flex items-center gap-1">
                                   <span>Pending:</span>
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-850 border border-amber-200">
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                     {item.targetQty - item.stockQty}
                                   </span>
                                 </div>
@@ -625,7 +625,7 @@ export default function ItemsPage() {
                         <div className={clsx(activeTab === 'catalog' && "col-span-2 sm:col-span-1")}>
                           <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest block mb-1.5">Status</span>
                           {activeTab === 'history' ? (
-                            <Badge variant="success" className="bg-green-50 text-green-700 border-green-150 font-black">
+                            <Badge variant="success" className="bg-green-50 text-green-700 border-green-200 font-black">
                               Fully Inwarded
                             </Badge>
                           ) : (
@@ -817,9 +817,9 @@ function HistoryPanel({ itemId }: { itemId: string }) {
                     <td className="px-4 py-3">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                         log.reason === 'Manual Update' ? 'bg-slate-100 text-slate-700' :
-                        log.reason.includes('Placed') ? 'bg-blue-50 text-blue-755 border border-blue-100' :
-                        log.reason.includes('Cancelled') ? 'bg-red-50 text-red-755 border border-red-100' :
-                        log.reason.includes('Received') ? 'bg-green-50 text-green-755 border border-green-100' : 'bg-slate-100 text-slate-700'
+                        log.reason.includes('Placed') ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                        log.reason.includes('Cancelled') ? 'bg-red-50 text-red-700 border border-red-100' :
+                        log.reason.includes('Received') ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-slate-100 text-slate-700'
                       }`}>
                         {log.reason}
                       </span>

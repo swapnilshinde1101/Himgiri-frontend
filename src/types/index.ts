@@ -190,3 +190,34 @@ export interface BulkInwardItem {
   itemId: string;
   quantityToAdd: number;
 }
+
+// ── School Kits ──
+export interface SchoolKitItem {
+  itemId: string;
+  itemName: string;
+  price: number;
+  mrp: number;
+  quantity: number;
+  categoryName: string;
+  unit: string;
+}
+
+export interface SchoolKit {
+  id: string;
+  name: string;
+  description?: string;
+  gradeId: string;
+  gradeName: string;
+  isActive: boolean;
+  items: SchoolKitItem[];
+  createdAt: string;
+}
+
+export interface CreateSchoolKitRequest {
+  name: string;
+  description?: string;
+  gradeId: string;
+  isActive: boolean;
+  items: { itemId: string; quantity: number }[];
+}
+

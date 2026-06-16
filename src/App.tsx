@@ -12,6 +12,7 @@ import StockPage from './features/inventory/StockPage';
 import GradesPage from './features/inventory/GradesPage';
 import CategoriesPage from './features/inventory/CategoriesPage';
 import StockHistoryPage from './features/inventory/StockHistoryPage';
+import KitsPage from './features/inventory/KitsPage';
 import api from './services/api';
 import { inventoryService } from './services/inventoryService';
 import { Package, AlertTriangle, ShieldAlert, ShoppingBag, IndianRupee, Clock } from 'lucide-react';
@@ -229,6 +230,7 @@ export default function App() {
                 <Route index element={<Navigate to="items" replace />} />
                 <Route path="items" element={<ItemsPage />} />
                 <Route path="stock" element={<StockPage />} />
+                <Route path="kits" element={<KitsPage />} />
                 <Route path="grades" element={<GradesPage />} />
                 <Route path="categories" element={<CategoriesPage />} />
                 <Route path="history" element={<StockHistoryPage />} />
