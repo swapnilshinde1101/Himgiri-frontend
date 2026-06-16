@@ -325,26 +325,26 @@ export default function ItemsPage() {
         </div>
       )}
 
-      {/* Bulk Selection Notification Bar */}
+      {/* Floating Bulk Selection Action Bar */}
       {selectedItems.length > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4 animate-in slide-in-from-top-4 duration-300 shadow-sm gap-4">
-          <div className="flex items-center gap-2">
+        <div className="fixed bottom-6 right-4 sm:right-6 md:right-8 lg:right-12 z-[40] w-auto max-w-[calc(100%-2rem)] flex flex-col sm:flex-row sm:items-center justify-between bg-white/95 backdrop-blur border-2 border-blue-100 rounded-2xl px-5 py-3.5 animate-in slide-in-from-bottom-8 duration-300 shadow-2xl gap-4">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <span className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-sm font-bold text-blue-800">
+            <span className="text-xs font-black text-gray-900 tracking-tight">
               {selectedItems.length} item(s) selected
             </span>
             <button 
               onClick={() => setSelectedItems([])} 
-              className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-semibold ml-2"
+              className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-bold ml-2"
             >
               Clear Selection
             </button>
           </div>
           
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             <Button 
               onClick={() => setIsBulkInwardOpen(true)} 
-              className="px-3.5 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-100"
+              className="px-3.5 py-1.5 h-auto text-xs bg-himgiri-primary hover:bg-himgiri-primary-dark text-white rounded-xl font-bold shadow-md shadow-blue-100"
             >
               Update Stock
             </Button>
@@ -353,7 +353,7 @@ export default function ItemsPage() {
               variant="outline"
               onClick={() => handleBulkToggleActive(true)} 
               isLoading={bulkToggleMutation.isPending}
-              className="px-3.5 py-1.5 text-xs border-blue-200 text-blue-700 hover:bg-blue-100/50 rounded-xl font-bold"
+              className="px-3.5 py-1.5 h-auto text-xs border-blue-200 text-blue-700 hover:bg-blue-100/50 rounded-xl font-bold"
             >
               Activate
             </Button>
@@ -362,7 +362,7 @@ export default function ItemsPage() {
               variant="outline"
               onClick={() => handleBulkToggleActive(false)} 
               isLoading={bulkToggleMutation.isPending}
-              className="px-3.5 py-1.5 text-xs border-blue-200 text-blue-700 hover:bg-blue-100/50 rounded-xl font-bold"
+              className="px-3.5 py-1.5 h-auto text-xs border-blue-200 text-blue-700 hover:bg-blue-100/50 rounded-xl font-bold"
             >
               Deactivate
             </Button>
