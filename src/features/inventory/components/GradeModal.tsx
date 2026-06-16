@@ -10,7 +10,9 @@ import Button from '../../../components/shared/Button';
 import toast from 'react-hot-toast';
 
 const gradeSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(50),
+  name: z.string()
+    .min(3, 'Name must be between 3 and 15 characters')
+    .max(15, 'Name must be between 3 and 15 characters'),
   shortName: z.string().min(1, 'Short Name is required').max(10),
   description: z.string().max(255).optional().default(''),
   isActive: z.boolean().default(true),

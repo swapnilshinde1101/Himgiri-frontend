@@ -11,7 +11,9 @@ import Button from '../../../components/shared/Button';
 import toast from 'react-hot-toast';
 
 const categorySchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100),
+  name: z.string()
+    .min(3, 'Name must be between 3 and 15 characters')
+    .max(15, 'Name must be between 3 and 15 characters'),
   description: z.string().max(255).optional().default(''),
   isActive: z.boolean().default(true),
   displayOrder: z.coerce.number().min(0),

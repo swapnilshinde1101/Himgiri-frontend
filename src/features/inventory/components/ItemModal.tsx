@@ -23,12 +23,12 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
   const isEdit = !!item;
 
   const itemSchema = z.object({
-    name: z.string().min(1, 'Name is required').max(200),
+    name: z.string().min(3, 'Name must be at least 3 characters').max(200, 'Name cannot exceed 200 characters'),
     description: z.string().max(1000).optional().nullable(),
     imageUrl: z.string().url('Invalid URL').optional().nullable().or(z.literal('')),
-    price: z.coerce.number().min(0, 'Price cannot be negative'),
+    price: z.coerce.number().min(0.01, 'Selling Price must be greater than 0'),
     purchasePrice: z.preprocess((val) => val === '' ? null : val, z.coerce.number().min(0, 'Purchase Price cannot be negative').nullable().optional()),
-    mrp: z.coerce.number().min(0, 'MRP cannot be negative'),
+    mrp: z.coerce.number().min(0.01, 'MRP must be greater than 0'),
     categoryId: z.string().min(1, 'Category is required'),
     gradeIds: z.array(z.string()).min(1, 'At least one Grade is required'),
     stockQty: z.coerce.number().int('Stock must be an integer').min(0, 'Stock cannot be negative'),
@@ -38,17 +38,38 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
     storageStatus: z.coerce.number(),
     isActive: z.boolean().default(true),
     isStockInitialized: z.boolean().default(false),
-  }).refine((data) => data.price <= data.mrp, {
-    message: 'Selling Price (Base) cannot be greater than MRP',
-    path: ['price'],
-  }).refine((data) => {
-    if (data.unit === '__custom__' && (!data.customUnit || data.customUnit.trim() === '')) {
-      return false;
+  }).superRefine((data, ctx) => {
+    // 1. Price <= MRP check
+    if (data.price > data.mrp) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Selling Price (Base) cannot be greater than MRP',
+        path: ['price'],
+      });
     }
-    return true;
-  }, {
-    message: 'Custom unit name is required',
-    path: ['customUnit'],
+
+    // 2. Custom unit name check
+    if (data.unit === '__custom__' && (!data.customUnit || data.customUnit.trim() === '')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Custom unit name is required',
+        path: ['customUnit'],
+      });
+    }
+
+    // 3. Price + GST <= MRP check
+    const category = categories?.find(c => c.id === data.categoryId);
+    if (category) {
+      const gstPercent = category.isTaxable ? category.gstPercent : 0;
+      const sellingPriceWithGst = data.price * (1 + gstPercent / 100);
+      if (sellingPriceWithGst > data.mrp) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Price inclusive of GST (₹${sellingPriceWithGst.toFixed(2)}) cannot exceed MRP (₹${data.mrp.toFixed(2)})`,
+          path: ['price'],
+        });
+      }
+    }
   });
 
   const {
@@ -144,16 +165,6 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
   // ── Mutations ──
   const mutation = useMutation({
     mutationFn: async (data: any) => {
-      // ── Price + GST <= MRP Validation ──
-      const category = categories?.find(c => c.id === data.categoryId);
-      if (category) {
-        const gstPercent = category.isTaxable ? category.gstPercent : 0;
-        const sellingPriceWithGst = data.price * (1 + gstPercent / 100);
-        if (sellingPriceWithGst > data.mrp) {
-          throw new Error(`Selling Price inclusive of GST (₹${sellingPriceWithGst.toFixed(2)}) cannot exceed MRP (₹${data.mrp.toFixed(2)})`);
-        }
-      }
-
       const finalUnit = data.unit === '__custom__' ? data.customUnit : data.unit;
       const finalStockQty = isEdit ? (item?.stockQty ?? 0) : 0;
  
