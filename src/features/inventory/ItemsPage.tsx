@@ -388,15 +388,17 @@ export default function ItemsPage() {
           </form>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-3 bg-gray-50/50 rounded-2xl px-4 py-3 text-xs font-bold text-gray-600 border border-gray-100">
-              <input
-                type="checkbox"
-                checked={allCurrentSelected}
-                onChange={handleSelectAllToggle}
-                className="w-4 h-4 text-himgiri-primary border-gray-300 rounded focus:ring-himgiri-primary cursor-pointer"
-              />
-              <span className="select-none text-[11px]">Select All on Page</span>
-            </div>
+            {activeTab === 'catalog' && (
+              <div className="flex items-center gap-3 bg-gray-50/50 rounded-2xl px-4 py-3 text-xs font-bold text-gray-600 border border-gray-100">
+                <input
+                  type="checkbox"
+                  checked={allCurrentSelected}
+                  onChange={handleSelectAllToggle}
+                  className="w-4 h-4 text-himgiri-primary border-gray-300 rounded focus:ring-himgiri-primary cursor-pointer"
+                />
+                <span className="select-none text-[11px]">Select All on Page</span>
+              </div>
+            )}
 
             <Button
               variant="outline"
