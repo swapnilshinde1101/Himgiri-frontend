@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { inventoryService } from '../../services/inventoryService';
 import { masterDataService } from '../../services/masterDataService';
 import { 
@@ -47,8 +48,7 @@ export default function StockPage() {
 
   const [searchVal, setSearchVal] = useState('');
   
-  // Expanded item history logs track
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   // Update Stock Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -135,10 +135,7 @@ export default function StockPage() {
     });
   };
 
-  const toggleHistory = (itemId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedItemId(expandedItemId === itemId ? null : itemId);
-  };
+
 
   const handlePageChange = (newPage: number) => {
     setParams(p => ({ ...p, pageNumber: newPage }));
@@ -254,11 +251,11 @@ export default function StockPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-100">
-                <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest w-10"></th>
                 <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest">Item Details</th>
                 <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest text-center">Category / Grade</th>
                 <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest text-center">Current Stock</th>
                 <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest text-center">Alert State</th>
+                <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest text-center">Audit Trail</th>
                 <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
@@ -288,90 +285,66 @@ export default function StockPage() {
               ) : (
                 data?.data.map((item) => {
                   const status = getStockStatus(item.stockQty);
-                  const isExpanded = expandedItemId === item.id;
                   return (
-                    <React.Fragment key={item.id}>
-                      <tr 
-                        className={clsx(
-                          "transition-all duration-200 cursor-pointer group", 
-                          status.bg,
-                          isExpanded && "bg-slate-50/50"
-                        )}
-                        onClick={(e) => toggleHistory(item.id, e)}
-                      >
-                        <td className="px-6 py-5 text-center">
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4 text-gray-400 group-hover:text-himgiri-primary transition-colors" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-himgiri-primary transition-colors" />
-                          )}
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="font-semibold text-gray-900 leading-tight">{item.name}</div>
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">{item.categoryName}</span>
-                            <span className="bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">{item.gradeNames}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                          <span className={clsx(
-                            "text-lg font-black font-mono",
-                            item.stockQty === 0 && "text-himgiri-danger",
-                            item.stockQty > 0 && item.stockQty < 10 && "text-himgiri-warning",
-                            item.stockQty >= 10 && "text-himgiri-success"
-                          )}>
-                            {item.stockQty}
-                          </span>
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                          <Badge variant={status.variant}>
-                            <div className="flex items-center gap-1">
-                              {item.stockQty === 0 && <XCircle className="h-3 w-3" />}
-                              {item.stockQty > 0 && item.stockQty < 10 && <AlertTriangle className="h-3 w-3" />}
-                              {item.stockQty >= 10 && <CheckCircle2 className="h-3 w-3" />}
-                              {status.label}
-                            </div>
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-5 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-end gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="rounded-xl border-gray-200 text-xs font-bold hover:bg-himgiri-primary hover:text-white hover:border-himgiri-primary transition-all"
-                              onClick={(e) => handleAdjustClick(item, e)}
-                            >
-                              Adjust Stock
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className={clsx(
-                                "rounded-xl text-xs font-bold transition-all",
-                                isExpanded ? "bg-slate-200/60 text-slate-800" : "text-gray-600 hover:bg-gray-100"
-                              )}
-                              onClick={(e) => toggleHistory(item.id, e)}
-                              icon={History}
-                            >
-                              Logs
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-
-                      {/* Stock History Accordion Panel */}
-                      {isExpanded && (
-                        <tr>
-                          <td colSpan={6} className="bg-slate-50/50 p-6 border-t border-b border-slate-100">
-                            <div className="animate-in slide-in-from-top-3 duration-300">
-                              <HistoryPanel itemId={item.id} />
-                            </div>
-                          </td>
-                        </tr>
+                    <tr 
+                      key={item.id}
+                      className={clsx(
+                        "transition-all duration-200 border-l-4 border-transparent hover:bg-gray-50/40", 
+                        status.bg
                       )}
-                    </React.Fragment>
+                    >
+                      <td className="px-6 py-5">
+                        <div className="font-semibold text-gray-900 leading-tight">{item.name}</div>
+                      </td>
+                      <td className="px-6 py-5 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">{item.categoryName}</span>
+                          <span className="bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">{item.gradeNames}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-center">
+                        <span className={clsx(
+                          "text-lg font-black font-mono",
+                          item.stockQty === 0 && "text-himgiri-danger",
+                          item.stockQty > 0 && item.stockQty < 10 && "text-himgiri-warning",
+                          item.stockQty >= 10 && "text-himgiri-success"
+                        )}>
+                          {item.stockQty}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 text-center">
+                        <Badge variant={status.variant}>
+                          <div className="flex items-center gap-1">
+                            {item.stockQty === 0 && <XCircle className="h-3 w-3" />}
+                            {item.stockQty > 0 && item.stockQty < 10 && <AlertTriangle className="h-3 w-3" />}
+                            {item.stockQty >= 10 && <CheckCircle2 className="h-3 w-3" />}
+                            {status.label}
+                          </div>
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/admin/reports/inventory?tab=stock-audit&search=${encodeURIComponent(item.name)}`)}
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-himgiri-primary hover:underline hover:text-blue-700"
+                        >
+                          <History className="h-3.5 w-3.5" />
+                          View Logs
+                        </button>
+                      </td>
+                      <td className="px-6 py-5 text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="rounded-xl border-gray-200 text-xs font-bold hover:bg-himgiri-primary hover:text-white hover:border-himgiri-primary transition-all"
+                            onClick={(e) => handleAdjustClick(item, e)}
+                          >
+                            Adjust Stock
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })
               )}
@@ -524,92 +497,4 @@ export default function StockPage() {
   );
 }
 
-// ── Stock History Panel Accordion Component ──
-function HistoryPanel({ itemId }: { itemId: string }) {
-  const { data: logsData, isLoading } = useQuery({
-    queryKey: ['stock-logs', itemId],
-    queryFn: () => inventoryService.getStockLogs(itemId),
-  });
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8 gap-3">
-        <Loader2 className="h-5 w-5 text-himgiri-primary animate-spin" />
-        <span className="text-sm font-bold text-gray-500">Loading audit history...</span>
-      </div>
-    );
-  }
-
-  const logs = logsData?.data || [];
-
-  return (
-    <div className="space-y-3">
-      <h4 className="text-xs font-black uppercase tracking-wider text-himgiri-secondary-dark/60 flex items-center gap-2">
-        <History className="h-4 w-4 text-himgiri-primary" />
-        Stock Transaction Audit Trail ({logs.length} adjustments)
-      </h4>
-
-      {logs.length === 0 ? (
-        <div className="text-center py-6 text-sm text-gray-400 font-medium bg-white rounded-2xl border border-gray-100">
-          No stock adjustment records available for this item.
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-4 py-3 font-black text-gray-400 uppercase tracking-widest">Timestamp</th>
-                <th className="px-4 py-3 font-black text-gray-400 uppercase tracking-widest text-center">Previous Qty</th>
-                <th className="px-4 py-3 font-black text-gray-400 uppercase tracking-widest text-center">New Qty</th>
-                <th className="px-4 py-3 font-black text-gray-400 uppercase tracking-widest text-center">Change</th>
-                <th className="px-4 py-3 font-black text-gray-400 uppercase tracking-widest">Adjusted By</th>
-                <th className="px-4 py-3 font-black text-gray-400 uppercase tracking-widest">Reason / Trigger</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {logs.map((log) => {
-                const diff = log.newQty - log.oldQty;
-                return (
-                  <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 text-gray-600 font-mono">
-                      {new Date(log.createdAt).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-center text-gray-500 font-mono font-medium">{log.oldQty}</td>
-                    <td className="px-4 py-3 text-center text-gray-700 font-mono font-bold">{log.newQty}</td>
-                    <td className="px-4 py-3 text-center">
-                      {diff === 0 ? (
-                        <span className="text-gray-400 font-mono font-bold">No change</span>
-                      ) : diff > 0 ? (
-                        <span className="text-green-600 font-mono font-black flex items-center justify-center gap-1">
-                          <TrendingUp className="h-3.5 w-3.5" />
-                          +{diff}
-                        </span>
-                      ) : (
-                        <span className="text-red-600 font-mono font-black flex items-center justify-center gap-1">
-                          <TrendingDown className="h-3.5 w-3.5" />
-                          {diff}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 font-semibold">{log.changedBy}</td>
-                    <td className="px-4 py-3">
-                      <span className={clsx(
-                        "text-[10px] px-2 py-0.5 rounded-full font-bold",
-                        log.reason === 'Manual Update' && "bg-slate-100 text-slate-700",
-                        log.reason.includes('Placed') && "bg-blue-50 text-blue-700 border border-blue-100",
-                        log.reason.includes('Cancelled') && "bg-red-50 text-red-700 border border-red-100",
-                        log.reason.includes('Received') && "bg-green-50 text-green-700 border border-green-100"
-                      )}>
-                        {log.reason}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}

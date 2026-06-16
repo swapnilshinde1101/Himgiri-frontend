@@ -13,6 +13,11 @@ import GradesPage from './features/inventory/GradesPage';
 import CategoriesPage from './features/inventory/CategoriesPage';
 import StockHistoryPage from './features/inventory/StockHistoryPage';
 import KitsPage from './features/inventory/KitsPage';
+import CustomerHome from './pages/customer/CustomerHome';
+import ReportsDashboard from './features/reports/ReportsDashboard';
+import InventoryReportsPage from './features/reports/InventoryReportsPage';
+import AccountReportsPage from './features/reports/AccountReportsPage';
+import StaffReportsPage from './features/reports/StaffReportsPage';
 import api from './services/api';
 import { inventoryService } from './services/inventoryService';
 import { Package, AlertTriangle, ShieldAlert, ShoppingBag, IndianRupee, Clock } from 'lucide-react';
@@ -183,7 +188,6 @@ const AdminDashboard = () => {
 };
 
 const AdminOrders = () => <div className="p-8 text-gray-600">Account & Billing Module — Building...</div>;
-const CustomerHome = () => <div className="p-8 text-gray-600">Public Portal — Building...</div>;
 
 export default function App() {
   // ── Startup Security Check ──
@@ -244,6 +248,20 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+
+              <Route
+                path="reports"
+                element={
+                  <ProtectedRoute allowedRoles={['SuperAdmin']}>
+                    <ReportsDashboard />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Navigate to="inventory" replace />} />
+                <Route path="inventory" element={<InventoryReportsPage />} />
+                <Route path="accounts" element={<AccountReportsPage />} />
+                <Route path="staff" element={<StaffReportsPage />} />
+              </Route>
             </Route>
 
             {/* Catch-all */}
