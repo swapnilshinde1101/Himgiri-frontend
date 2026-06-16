@@ -96,14 +96,14 @@ export default function GradeModal({ isOpen, onClose, data }: Props) {
         <form onSubmit={handleSubmit((d) => mutation.mutate(d as any))} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <Input label="Name" error={errors.name?.message?.toString()} {...register('name')} />
+              <Input label="Name *" error={errors.name?.message?.toString()} {...register('name')} />
             </div>
 
             <div className="md:col-span-2">
               <Input label="Description" error={errors.description?.message?.toString()} {...register('description')} />
             </div>
             
-            <Input label="Short Name (e.g. G1)" error={errors.shortName?.message?.toString()} {...register('shortName')} />
+            <Input label="Short Name * (e.g. G1)" error={errors.shortName?.message?.toString()} {...register('shortName')} />
             <Input label="Display Order" type="number" error={errors.displayOrder?.message?.toString()} {...register('displayOrder')} />
             
             <div className="flex items-center gap-2 pt-2">

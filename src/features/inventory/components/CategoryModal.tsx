@@ -110,7 +110,7 @@ export default function CategoryModal({ isOpen, onClose, data }: Props) {
         <form onSubmit={handleSubmit((d) => mutation.mutate(d as any))} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <Input label="Name" error={errors.name?.message?.toString()} {...register('name')} />
+              <Input label="Name *" error={errors.name?.message?.toString()} {...register('name')} />
             </div>
 
             <div className="md:col-span-2">
@@ -118,7 +118,7 @@ export default function CategoryModal({ isOpen, onClose, data }: Props) {
             </div>
             
             <Input label="Display Order" type="number" error={errors.displayOrder?.message?.toString()} {...register('displayOrder')} />
-            <Input label="HSN Code" error={errors.hsnCode?.message?.toString()} {...register('hsnCode')} />
+            <Input label="HSN Code *" error={errors.hsnCode?.message?.toString()} {...register('hsnCode')} />
             
             <div className="flex items-center gap-2 pt-2">
                <input type="checkbox" id="isActive" {...register('isActive')} className="w-4 h-4 text-himgiri-primary rounded" />

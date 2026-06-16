@@ -221,7 +221,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
             {/* Name */}
             <div className="md:col-span-2">
               <Input
-                label="Item Name"
+                label="Item Name *"
                 placeholder="e.g. Mathematics Grade 2 Textbook"
                 error={errors.name?.message?.toString()}
                 {...register('name')}
@@ -250,7 +250,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
 
             {/* Category Dropdown (Dynamic) */}
             <Select
-              label="Category"
+              label="Category *"
               isLoading={loadingCats}
               options={[
                 { label: 'Select Category', value: '' },
@@ -320,7 +320,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
             />
 
             <Input
-              label="Selling Price (Base)"
+              label="Selling Price (Base) *"
               type="number"
               step="0.01"
               placeholder="0.00"
@@ -329,7 +329,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
             />
 
             <Input
-              label="MRP"
+              label="MRP *"
               type="number"
               step="0.01"
               placeholder="0.00"
@@ -348,7 +348,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
             />
 
             <Select
-              label="Unit of Measurement"
+              label="Unit of Measurement *"
               options={[
                 { label: 'Pieces (Pcs)', value: 'Pieces (Pcs)' },
                 { label: 'Sets', value: 'Sets' },
@@ -363,7 +363,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
 
             {watchUnit === '__custom__' && (
               <Input
-                label="Custom Unit Name"
+                label="Custom Unit Name *"
                 placeholder="e.g. Rolls, Litres"
                 error={errors.customUnit?.message?.toString()}
                 {...register('customUnit')}
@@ -371,7 +371,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
             )}
 
             <Input
-              label="Target / Ordered Quantity"
+              label="Target / Ordered Quantity *"
               type="number"
               placeholder="1"
               error={errors.targetQty?.message?.toString()}
