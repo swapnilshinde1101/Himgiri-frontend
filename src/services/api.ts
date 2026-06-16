@@ -23,6 +23,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // If the request explicitly requests to skip the global toast error, skip it
+    if ((error.config as any)?.skipGlobalToast) {
+      return Promise.reject(error);
+    }
+
     const status = error.response?.status;
     const message = error.response?.data?.message || 'Something went wrong';
 
@@ -43,7 +48,10 @@ api.interceptors.response.use(
         break;
 
       case 400:
-        // Bad Request — validation or business logic error
+      case 404:
+      case 409:
+      case 422:
+        // Client-side and business logic errors
         toast.error(message);
         break;
 
@@ -60,6 +68,8 @@ api.interceptors.response.use(
             setTimeout(() => {
                 window.location.href = '/admin/login';
             }, 2000);
+        } else {
+            toast.error(message);
         }
         break;
     }

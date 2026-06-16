@@ -87,9 +87,6 @@ export default function StockPage() {
       toast.success('Stock adjusted successfully');
       setIsModalOpen(false);
       setSelectedItem(null);
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || err.message || 'Failed to adjust stock');
     }
   });
 

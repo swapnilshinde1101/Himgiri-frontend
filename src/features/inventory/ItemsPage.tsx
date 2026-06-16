@@ -91,9 +91,6 @@ export default function ItemsPage() {
       queryClient.invalidateQueries({ queryKey: ['items'] });
       toast.success(variables.isActive ? 'Selected items activated' : 'Selected items deactivated');
       setSelectedItems([]);
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || err.message || 'Failed to update items');
     }
   });
 

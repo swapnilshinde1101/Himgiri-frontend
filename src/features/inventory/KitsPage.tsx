@@ -51,6 +51,7 @@ export default function KitsPage() {
   const [kitDescription, setKitDescription] = useState('');
   const [gradeId, setGradeId] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [formErrors, setFormErrors] = useState<{ kitName?: string; gradeId?: string; items?: string }>({});
   
   // constituent items in the kit being created/edited
   const [kitItems, setKitItems] = useState<{ itemId: string; quantity: number }[]>([]);
@@ -89,9 +90,6 @@ export default function KitsPage() {
       queryClient.invalidateQueries({ queryKey: ['school-kits'] });
       toast.success('School Kit created successfully');
       closeModal();
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || err.message || 'Failed to create kit');
     }
   });
 
@@ -101,9 +99,6 @@ export default function KitsPage() {
       queryClient.invalidateQueries({ queryKey: ['school-kits'] });
       toast.success('School Kit updated successfully');
       closeModal();
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || err.message || 'Failed to update kit');
     }
   });
 
@@ -112,9 +107,6 @@ export default function KitsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['school-kits'] });
       toast.success('School Kit deleted successfully');
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || err.message || 'Failed to delete kit');
     }
   });
 
@@ -131,6 +123,7 @@ export default function KitsPage() {
     setGradeId('');
     setIsActive(true);
     setKitItems([]);
+    setFormErrors({});
     setIsModalOpen(true);
   };
 
@@ -142,6 +135,7 @@ export default function KitsPage() {
     setGradeId(kit.gradeId);
     setIsActive(kit.isActive);
     setKitItems(kit.items.map(i => ({ itemId: i.itemId, quantity: i.quantity })));
+    setFormErrors({});
     setIsModalOpen(true);
   };
 
@@ -169,10 +163,12 @@ export default function KitsPage() {
 
   const handleAddKitItem = () => {
     setKitItems(prev => [...prev, { itemId: '', quantity: 1 }]);
+    setFormErrors(prev => ({ ...prev, items: undefined }));
   };
 
   const handleRemoveKitItem = (index: number) => {
     setKitItems(prev => prev.filter((_, idx) => idx !== index));
+    setFormErrors(prev => ({ ...prev, items: undefined }));
   };
 
   const handleKitItemFieldChange = (index: number, field: 'itemId' | 'quantity', value: any) => {
@@ -185,29 +181,36 @@ export default function KitsPage() {
       }
       return item;
     }));
+    setFormErrors(prev => ({ ...prev, items: undefined }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!kitName.trim()) {
-      toast.error('Kit Name is required');
-      return;
-    }
-    if (!gradeId) {
-      toast.error('Grade is required');
-      return;
-    }
-    if (kitItems.length === 0) {
-      toast.error('At least one item must be added to the kit');
-      return;
+    const errors: { kitName?: string; gradeId?: string; items?: string } = {};
+    const trimmedName = kitName.trim();
+    
+    if (!trimmedName) {
+      errors.kitName = 'Kit Name is required';
+    } else if (trimmedName.length < 3 || trimmedName.length > 200) {
+      errors.kitName = 'Kit Name is required and must be between 3 and 200 characters.';
     }
 
-    const hasEmptyItems = kitItems.some(i => !i.itemId);
-    if (hasEmptyItems) {
-      toast.error('Please select an item for all lines or remove empty lines');
+    if (!gradeId) {
+      errors.gradeId = 'Grade is required';
+    }
+
+    if (kitItems.length === 0) {
+      errors.items = 'At least one item must be added to the kit';
+    } else if (kitItems.some(i => !i.itemId)) {
+      errors.items = 'Please select an item for all lines or remove empty lines';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
+    setFormErrors({});
 
     const payload = {
       name: kitName.trim(),
@@ -382,10 +385,25 @@ export default function KitsPage() {
                     type="text"
                     required
                     placeholder="e.g. Grade 1 Starter Kit"
-                    className="w-full px-5 py-3 border border-gray-200 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:border-himgiri-primary transition-all"
+                    className={clsx(
+                      "w-full px-5 py-3 border rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 transition-all",
+                      formErrors.kitName 
+                        ? "border-red-500 focus:ring-red-500/10 focus:border-red-500" 
+                        : "border-gray-200 focus:ring-himgiri-primary/10 focus:border-himgiri-primary"
+                    )}
                     value={kitName}
-                    onChange={(e) => setKitName(e.target.value)}
+                    onChange={(e) => {
+                      setKitName(e.target.value);
+                      if (formErrors.kitName) {
+                        setFormErrors(prev => ({ ...prev, kitName: undefined }));
+                      }
+                    }}
                   />
+                  {formErrors.kitName && (
+                    <p className="text-red-500 text-xs mt-1.5 font-bold animate-in fade-in slide-in-from-top-1 duration-200">
+                      {formErrors.kitName}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -394,15 +412,30 @@ export default function KitsPage() {
                   </label>
                   <select
                     required
-                    className="w-full px-5 py-3 border border-gray-200 rounded-2xl text-sm font-semibold bg-white focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:border-himgiri-primary transition-all"
+                    className={clsx(
+                      "w-full px-5 py-3 border rounded-2xl text-sm font-semibold bg-white focus:outline-none focus:ring-4 transition-all",
+                      formErrors.gradeId 
+                        ? "border-red-500 focus:ring-red-500/10 focus:border-red-500" 
+                        : "border-gray-200 focus:ring-himgiri-primary/10 focus:border-himgiri-primary"
+                    )}
                     value={gradeId}
-                    onChange={(e) => setGradeId(e.target.value)}
+                    onChange={(e) => {
+                      setGradeId(e.target.value);
+                      if (formErrors.gradeId) {
+                        setFormErrors(prev => ({ ...prev, gradeId: undefined }));
+                      }
+                    }}
                   >
                     <option value="">Select Target Class...</option>
                     {grades?.map(g => (
                       <option key={g.id} value={g.id}>{g.name}</option>
                     ))}
                   </select>
+                  {formErrors.gradeId && (
+                    <p className="text-red-500 text-xs mt-1.5 font-bold animate-in fade-in slide-in-from-top-1 duration-200">
+                      {formErrors.gradeId}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -451,9 +484,16 @@ export default function KitsPage() {
                 </div>
 
                 {kitItems.length === 0 ? (
-                  <div className="text-center py-6 bg-slate-50 rounded-2xl border border-dashed border-gray-200">
-                    <BookOpen className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                    <span className="text-xs text-gray-400 font-bold block">No items added to the kit. Click "Add Line Item".</span>
+                  <div className={clsx(
+                    "text-center py-6 rounded-2xl border border-dashed transition-all",
+                    formErrors.items 
+                      ? "bg-red-50/30 border-red-300" 
+                      : "bg-slate-50 border-gray-200"
+                  )}>
+                    <BookOpen className={clsx("h-8 w-8 mx-auto mb-2", formErrors.items ? "text-red-300" : "text-gray-300")} />
+                    <span className={clsx("text-xs font-bold block", formErrors.items ? "text-red-500" : "text-gray-400")}>
+                      No items added to the kit. Click "Add Line Item".
+                    </span>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -498,6 +538,11 @@ export default function KitsPage() {
                       </div>
                     ))}
                   </div>
+                )}
+                {formErrors.items && (
+                  <p className="text-red-500 text-xs mt-1.5 font-bold animate-in fade-in slide-in-from-top-1 duration-200">
+                    {formErrors.items}
+                  </p>
                 )}
               </div>
 

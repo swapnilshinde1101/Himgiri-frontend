@@ -185,9 +185,6 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
       queryClient.invalidateQueries({ queryKey: ['lowStockCount'] });
       toast.success(isEdit ? 'Item updated' : 'Item created');
       onClose();
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || err.message || 'Something went wrong');
     }
   });
 

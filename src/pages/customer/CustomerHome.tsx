@@ -127,7 +127,7 @@ export default function CustomerHome() {
         toast.error(res.message || 'Failed to place order.');
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || 'Order creation failed.');
+      // Handled by global response interceptor
     } finally {
       setIsPlacingOrder(false);
     }

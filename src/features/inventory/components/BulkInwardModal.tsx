@@ -44,9 +44,6 @@ export default function BulkInwardModal({ isOpen, onClose, selectedItems, onSucc
       queryClient.invalidateQueries({ queryKey: ['lowStockCount'] });
       toast.success('Selected items updated successfully');
       onSuccess();
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || err.message || 'Failed to update stock');
     }
   });
 
