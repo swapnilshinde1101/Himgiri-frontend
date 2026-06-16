@@ -211,7 +211,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
           <h3 className="text-xl font-bold text-white">
             {isEdit ? 'Edit Inventory Item' : 'Add New Item'}
           </h3>
-          <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-white/80 hover:text-white hover:rotate-90 transition-transform focus:outline-none">
             <X className="h-6 w-6" />
           </button>
         </div>

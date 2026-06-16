@@ -354,27 +354,23 @@ export default function KitsPage() {
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 p-8 transform scale-100 transition-all duration-300 animate-in zoom-in-95 custom-scrollbar cursor-default"
+            className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl border border-gray-100 transform scale-100 transition-all duration-300 animate-in zoom-in-95 flex flex-col cursor-default"
           >
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h3 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-                  <FolderPlus className="h-5 w-5 text-himgiri-primary" />
-                  {selectedKit ? 'Modify School Kit' : 'Assemble New School Kit'}
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">Configure bundle details, targets, and items.</p>
-              </div>
+            <div className="px-8 py-4 border-b border-gray-100 flex items-center justify-between bg-himgiri-primary text-white flex-shrink-0">
+              <h3 className="text-xl font-bold">
+                {selectedKit ? 'Modify School Kit' : 'Assemble New School Kit'}
+              </h3>
               <button 
                 type="button"
                 onClick={closeModal}
-                className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all focus:outline-none"
+                className="text-white/80 hover:text-white hover:rotate-90 transition-transform focus:outline-none"
                 aria-label="Close modal"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
               {/* Core Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -604,7 +600,7 @@ export default function KitsPage() {
               <button 
                 type="button"
                 onClick={closeViewModal}
-                className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all focus:outline-none"
+                className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 hover:rotate-90 transition-all focus:outline-none"
                 aria-label="Close details"
               >
                 <X className="h-6 w-6" />
