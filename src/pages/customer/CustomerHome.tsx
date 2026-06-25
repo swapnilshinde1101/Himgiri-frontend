@@ -120,16 +120,7 @@ export default function CustomerHome() {
     .sort((a, b) => a.displayOrder - b.displayOrder);
   const activeCategories = categories.filter(c => c.isActive);
 
-  // Helper styles
-  const getDeliveryMethodText = (item: { storageStatus: string }) => {
-    return item.storageStatus === 'PreOrder' ? 'Classroom Delivery' : 'Home Delivery';
-  };
 
-  const getDeliveryMethodStyles = (item: { storageStatus: string }) => {
-    return item.storageStatus === 'PreOrder'
-      ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
-      : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60';
-  };
 
   // ── Debounce Search Query (300ms) ──
   useEffect(() => {
@@ -696,10 +687,6 @@ export default function CustomerHome() {
                                   <span className="bg-white text-gray-650 border border-gray-150 px-1.5 py-0.5 rounded">{item.categoryName}</span>
                                   <span>•</span>
                                   <span>Qty: {item.quantity} {item.unit}</span>
-                                  <span>•</span>
-                                  <span className={`px-1.5 py-0.5 rounded border normal-case tracking-normal ${getDeliveryMethodStyles(item)}`}>
-                                    {getDeliveryMethodText(item)}
-                                  </span>
                                 </div>
                               </div>
                             </div>
@@ -817,13 +804,6 @@ export default function CustomerHome() {
                                 <BookOpen className="h-10 w-10 text-slate-355" />
                               )}
                               
-                              <span className={clsx(
-                                "absolute top-2 left-2 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border shadow-sm",
-                                getDeliveryMethodStyles(item)
-                              )}>
-                                {getDeliveryMethodText(item)}
-                              </span>
-                              
                               <span className="absolute bottom-2 right-2 text-[8px] font-black bg-slate-900/75 text-white px-2 py-0.5 rounded-md uppercase tracking-wider backdrop-blur-sm">
                                 {item.categoryName}
                               </span>
@@ -857,18 +837,9 @@ export default function CustomerHome() {
                                   )}
                                 </div>
                                 
-                                {item.storageStatus === 'InStock' && (
-                                  <span className={clsx(
-                                    "text-[9px] font-extrabold uppercase tracking-wider block",
-                                    item.stockQty <= 0 
-                                      ? "text-red-500 font-black" 
-                                      : item.stockQty <= 5 
-                                        ? "text-amber-500 animate-pulse font-black" 
-                                        : "text-gray-400"
-                                  )}>
-                                    {item.stockQty <= 0 
-                                      ? "Out of Stock" 
-                                      : `Only ${item.stockQty} ${item.unit} left`}
+                                {item.storageStatus === 'InStock' && item.stockQty <= 0 && (
+                                  <span className="text-[9px] font-extrabold uppercase tracking-wider block text-red-500 font-black">
+                                    Out of Stock
                                   </span>
                                 )}
                                 {item.storageStatus === 'PreOrder' && (
