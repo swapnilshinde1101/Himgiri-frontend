@@ -105,7 +105,7 @@ export default function CustomerHome() {
       categoryId: selectedCategoryId === 'All' ? null : selectedCategoryId,
       searchTerm: debouncedSearchQuery,
       pageNumber,
-      pageSize: 12
+      pageSize: 6 // Reduced page size so they can test pagination with 11 items
     }, signal),
     enabled: selectedGradeId !== undefined,
   });
@@ -127,34 +127,23 @@ export default function CustomerHome() {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPageNumber(1);
-      setCatalogItems([]);
     }, 300);
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
 
 
-  // ── Append items on next page, or replace on page 1 reset ──
+  // ── Update items on page load ──
   useEffect(() => {
     if (catalogRes?.data) {
-      const newItems = catalogRes.data;
-      if (pageNumber === 1) {
-        setCatalogItems(newItems);
-      } else {
-        setCatalogItems(prev => {
-          const existingIds = new Set(prev.map(i => i.id));
-          const filteredNew = newItems.filter(i => !existingIds.has(i.id));
-          return [...prev, ...filteredNew];
-        });
-      }
-
+      setCatalogItems(catalogRes.data);
       if (catalogRes.meta) {
         setHasMore(catalogRes.meta.currentPage < catalogRes.meta.totalPages);
       } else {
-        setHasMore(newItems.length >= 12);
+        setHasMore(catalogRes.data.length >= 6);
       }
     }
-  }, [catalogRes, pageNumber]);
+  }, [catalogRes]);
 
   // ── Safety Rule: Force Home Delivery if Grade is Null (General Shop) ──
   useEffect(() => {
@@ -722,56 +711,44 @@ export default function CustomerHome() {
                     </p>
                   </div>
 
-                  {/* Filter controls */}
-                  <div className="space-y-3">
-                    <div className="relative">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  {/* Amazon-style unified Search & Category Selector Bar */}
+                  <div>
+                    <div className="flex bg-white border border-gray-200 rounded-2xl shadow-sm focus-within:ring-4 focus-within:ring-himgiri-primary/10 focus-within:border-himgiri-primary overflow-hidden transition-all h-14">
+                      {/* Left: Category Selector Dropdown */}
+                      <div className="bg-slate-50 border-r border-gray-200 flex items-center px-4 hover:bg-slate-100 transition-colors shrink-0 max-w-[150px] sm:max-w-[180px]">
+                        <select
+                          className="bg-transparent text-[11px] font-black uppercase tracking-wider text-gray-600 focus:outline-none cursor-pointer border-none py-1 w-full"
+                          value={selectedCategoryId}
+                          onChange={(e) => {
+                            setSelectedCategoryId(e.target.value);
+                            setPageNumber(1);
+                          }}
+                        >
+                          <option value="All">All Categories</option>
+                          {activeCategories.map(cat => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Middle: Input field */}
                       <input
                         type="text"
-                        placeholder="Search items by name or description..."
-                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
+                        placeholder="Search for textbooks, bags, stationery, journals..."
+                        className="flex-1 px-4 py-3 bg-transparent text-xs font-semibold focus:outline-none border-none text-gray-800 placeholder:text-gray-400"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
-                    </div>
 
-                    {/* Category pills */}
-                    <div className="flex flex-wrap gap-1.5">
+                      {/* Right: Search icon button */}
                       <button
                         type="button"
-                        onClick={() => {
-                          setSelectedCategoryId('All');
-                          setPageNumber(1);
-                          setCatalogItems([]);
-                        }}
-                        className={clsx(
-                          "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
-                          selectedCategoryId === 'All'
-                            ? "bg-slate-900 border-slate-900 text-white"
-                            : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-                        )}
+                        className="bg-slate-900 hover:bg-slate-800 text-white px-6 flex items-center justify-center transition-colors shrink-0"
                       >
-                        All Categories
+                        <Search className="h-5 w-5" />
                       </button>
-                      {activeCategories.map(cat => (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCategoryId(cat.id);
-                            setPageNumber(1);
-                            setCatalogItems([]);
-                          }}
-                          className={clsx(
-                            "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
-                            selectedCategoryId === cat.id
-                              ? "bg-slate-900 border-slate-900 text-white"
-                              : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-                          )}
-                        >
-                          {cat.name}
-                        </button>
-                      ))}
                     </div>
                   </div>
 
@@ -894,25 +871,62 @@ export default function CustomerHome() {
                     </div>
                   )}
 
-                  {hasMore && (
-                    <div className="flex justify-center pt-6 border-t border-gray-100">
-                      <button
-                        type="button"
-                        onClick={() => setPageNumber(p => p + 1)}
-                        disabled={catalogLoading}
-                        className="px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl text-xs font-black hover:bg-gray-50 active:scale-95 transition-all shadow-sm flex items-center gap-2"
-                      >
-                        {catalogLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                            <span>Loading...</span>
-                          </>
-                        ) : (
-                          <span>Load More Items</span>
-                        )}
-                      </button>
-                    </div>
-                  )}
+                  {/* Numbered Pagination Controls */}
+                  {(() => {
+                    const meta = catalogRes?.meta;
+                    if (!meta || meta.totalPages <= 1) return null;
+                    return (
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-gray-100 mt-6">
+                        <span className="text-[11px] font-bold text-gray-500">
+                          Showing page <strong className="text-gray-800">{meta.currentPage}</strong> of <strong className="text-gray-800">{meta.totalPages}</strong> (Total <strong className="text-gray-800">{meta.totalRecords}</strong> items)
+                        </span>
+                        
+                        <div className="flex items-center gap-1.5">
+                          {/* Previous Button */}
+                          <button
+                            type="button"
+                            disabled={meta.currentPage === 1 || catalogLoading}
+                            onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                            className="px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-[10px] font-black hover:bg-gray-50 active:scale-95 disabled:opacity-40 disabled:hover:bg-white disabled:active:scale-100 transition-all shadow-sm flex items-center gap-1"
+                          >
+                            &lt; Prev
+                          </button>
+
+                          {/* Page Numbers */}
+                          {Array.from({ length: meta.totalPages }, (_, index) => {
+                            const pageIdx = index + 1;
+                            const isCurrent = pageIdx === meta.currentPage;
+                            return (
+                              <button
+                                key={pageIdx}
+                                type="button"
+                                disabled={catalogLoading}
+                                onClick={() => setPageNumber(pageIdx)}
+                                className={clsx(
+                                  "h-8 w-8 flex items-center justify-center rounded-xl text-[10px] font-black transition-all active:scale-95",
+                                  isCurrent
+                                    ? "bg-slate-900 border border-slate-900 text-white shadow-md shadow-slate-900/10"
+                                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-100"
+                                )}
+                              >
+                                {pageIdx}
+                              </button>
+                            );
+                          })}
+
+                          {/* Next Button */}
+                          <button
+                            type="button"
+                            disabled={meta.currentPage === meta.totalPages || catalogLoading}
+                            onClick={() => setPageNumber(p => Math.min(meta.totalPages, p + 1))}
+                            className="px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-[10px] font-black hover:bg-gray-50 active:scale-95 disabled:opacity-40 disabled:hover:bg-white disabled:active:scale-100 transition-all shadow-sm flex items-center gap-1"
+                          >
+                            Next &gt;
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
