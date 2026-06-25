@@ -484,7 +484,7 @@ export default function CustomerHome() {
 
               {simulatorStatus === 'failed' && (
                 <div className="text-center py-6 space-y-5 animate-in fade-in duration-300">
-                  <div className="h-16 w-16 bg-red-50 border border-red-200 rounded-full flex items-center justify-center mx-auto text-red-650">
+                  <div className="h-16 w-16 bg-red-50 border border-red-200 rounded-full flex items-center justify-center mx-auto text-red-600">
                     <XCircle className="h-10 w-10" />
                   </div>
                   <div className="space-y-2">
@@ -584,7 +584,7 @@ export default function CustomerHome() {
                   <button
                     type="button"
                     onClick={() => handleGradeSelect(null)}
-                    className="w-full py-4 bg-emerald-650 hover:bg-emerald-700 text-white rounded-2xl text-sm font-extrabold active:scale-98 transition-all shadow-md shadow-emerald-600/10 flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-sm font-extrabold active:scale-98 transition-all shadow-md shadow-emerald-600/10 flex items-center justify-center gap-2"
                   >
                     <span>Browse General Catalog</span>
                     <ChevronRight className="h-4 w-4" />
@@ -801,7 +801,7 @@ export default function CustomerHome() {
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <BookOpen className="h-10 w-10 text-slate-355" />
+                                <BookOpen className="h-10 w-10 text-slate-400" />
                               )}
                               
                               <span className="absolute bottom-2 right-2 text-[8px] font-black bg-slate-900/75 text-white px-2 py-0.5 rounded-md uppercase tracking-wider backdrop-blur-sm">
@@ -855,7 +855,7 @@ export default function CustomerHome() {
                                     <button
                                       type="button"
                                       onClick={() => updateAddOnQty(item.id, -1, item)}
-                                      className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-gray-100 text-gray-750 active:scale-90 transition-all flex items-center justify-center font-black text-sm border border-gray-200"
+                                      className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-gray-100 text-gray-700 active:scale-90 transition-all flex items-center justify-center font-black text-sm border border-gray-200"
                                     >
                                       -
                                     </button>
@@ -866,7 +866,7 @@ export default function CustomerHome() {
                                       type="button"
                                       onClick={() => updateAddOnQty(item.id, 1, item)}
                                       disabled={item.storageStatus === 'InStock' && (addOnQuantities[item.id] || 0) >= item.stockQty}
-                                      className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-gray-150 text-gray-755 active:scale-90 disabled:opacity-40 disabled:hover:bg-white disabled:active:scale-100 transition-all flex items-center justify-center font-black text-sm border border-gray-200"
+                                      className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-gray-150 text-gray-800 active:scale-90 disabled:opacity-40 disabled:hover:bg-white disabled:active:scale-100 transition-all flex items-center justify-center font-black text-sm border border-gray-200"
                                     >
                                       +
                                     </button>
@@ -880,7 +880,7 @@ export default function CustomerHome() {
                                       "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 border shadow-sm",
                                       item.storageStatus === 'InStock' && item.stockQty <= 0
                                         ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
-                                        : "bg-himgiri-primary border-himgiri-primary text-white hover:bg-blue-750 hover:border-blue-750"
+                                        : "bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:border-blue-700"
                                     )}
                                   >
                                     {item.storageStatus === 'InStock' && item.stockQty <= 0 ? "Sold Out" : "Add to Cart"}
