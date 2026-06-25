@@ -31,5 +31,11 @@ export const catalogService = {
       signal 
     });
     return data;
+  },
+  getSuggestions: async (term: string): Promise<ApiResponse<string[]>> => {
+    const { data } = await api.get<ApiResponse<string[]>>('/items/suggestions', {
+      params: { term }
+    });
+    return data;
   }
 };

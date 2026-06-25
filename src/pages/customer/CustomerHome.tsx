@@ -60,6 +60,8 @@ export default function CustomerHome() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('All');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   
   // Pagination & Catalog list states
   const [pageNumber, setPageNumber] = useState(1);
@@ -129,6 +131,27 @@ export default function CustomerHome() {
       setPageNumber(1);
     }, 300);
     return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // ── Fetch autocomplete search suggestions ──
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await catalogService.getSuggestions(searchQuery);
+        if (res.data) {
+          setSuggestions(res.data);
+        }
+      } catch (err) {
+        // Silently ignore suggestions errors
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
   }, [searchQuery]);
 
 
@@ -712,7 +735,7 @@ export default function CustomerHome() {
                   </div>
 
                   {/* Amazon-style unified Search & Category Selector Bar */}
-                  <div>
+                  <div className="relative">
                     <div className="flex bg-white border border-gray-200 rounded-2xl shadow-sm focus-within:ring-4 focus-within:ring-himgiri-primary/10 focus-within:border-himgiri-primary overflow-hidden transition-all h-14">
                       {/* Left: Category Selector Dropdown */}
                       <div className="bg-slate-50 border-r border-gray-200 flex items-center px-4 hover:bg-slate-100 transition-colors shrink-0 max-w-[150px] sm:max-w-[180px]">
@@ -739,6 +762,8 @@ export default function CustomerHome() {
                         placeholder="Search for textbooks, bags, stationery, journals..."
                         className="flex-1 px-4 py-3 bg-transparent text-xs font-semibold focus:outline-none border-none text-gray-800 placeholder:text-gray-400"
                         value={searchQuery}
+                        onFocus={() => setShowSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
 
@@ -750,6 +775,28 @@ export default function CustomerHome() {
                         <Search className="h-5 w-5" />
                       </button>
                     </div>
+
+                    {/* Autocomplete Suggestions Dropdown */}
+                    {showSuggestions && suggestions.length > 0 && (
+                      <div className="absolute z-20 left-0 right-0 top-full mt-1.5 bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                        {suggestions.map((suggestion, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery(suggestion);
+                              setDebouncedSearchQuery(suggestion);
+                              setPageNumber(1);
+                              setShowSuggestions(false);
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 hover:bg-slate-50 hover:text-gray-950 transition-colors flex items-center gap-2 border-b border-slate-50 last:border-0"
+                          >
+                            <Search className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                            <span className="truncate">{suggestion}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Items catalog grid */}
@@ -763,7 +810,7 @@ export default function CustomerHome() {
                       <p className="text-gray-400 font-bold text-xs">No active shop items match your search or category filter.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {displayCatalogItems.map(item => (
                         <div 
                           key={item.id} 
