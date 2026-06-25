@@ -9,7 +9,7 @@ export interface CreateOrderRequest {
   addressLine2: string;
   city: string;
   pincode: string;
-  gradeId: string;
+  gradeId: string | null;
   items: { itemId: string; quantity: number }[];
   includeDelivery: boolean;
 }

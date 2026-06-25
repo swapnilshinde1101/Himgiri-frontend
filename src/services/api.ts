@@ -34,12 +34,13 @@ api.interceptors.response.use(
     switch (status) {
       case 401:
         // Unauthorized — session expired or invalid
-        sessionStorage.removeItem('himgiri_token');
-        sessionStorage.removeItem('himgiri_user');
-        toast.error('Session expired. Please login again.');
-        setTimeout(() => {
-            window.location.href = '/admin/login';
-        }, 1500);
+        sessionStorage.removeItem('himgiri-auth-storage');
+        if (window.location.pathname.startsWith('/admin')) {
+          toast.error('Session expired. Please login again.');
+          setTimeout(() => {
+              window.location.href = '/admin/login';
+          }, 1500);
+        }
         break;
 
       case 403:
@@ -63,11 +64,13 @@ api.interceptors.response.use(
       default:
         // Network or unknown error (Backend is disconnected)
         if (!error.response) {
-            toast.error('Server unreachable. Logging out for security.');
+            toast.error('Server unreachable.');
             sessionStorage.removeItem('himgiri-auth-storage');
-            setTimeout(() => {
-                window.location.href = '/admin/login';
-            }, 2000);
+            if (window.location.pathname.startsWith('/admin')) {
+              setTimeout(() => {
+                  window.location.href = '/admin/login';
+              }, 2000);
+            }
         } else {
             toast.error(message);
         }

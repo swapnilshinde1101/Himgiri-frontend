@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { kitService } from '../../services/kitService';
 import { orderService } from '../../services/orderService';
 import { masterDataService } from '../../services/masterDataService';
+import { catalogService } from '../../services/catalogService';
 import { 
   GraduationCap, 
   ShoppingBag, 
@@ -20,21 +21,50 @@ import {
   User,
   Phone,
   Mail,
-  BookOpen
+  BookOpen,
+  ArrowLeft,
+  Search
 } from 'lucide-react';
 import Button from '../../components/shared/Button';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
-import type { SchoolKit, SchoolKitItem } from '../../types';
+import type { SchoolKit, Item } from '../../types';
+
+interface CartDisplayItem {
+  itemId: string;
+  itemName: string;
+  price: number;
+  mrp: number;
+  quantity: number;
+  categoryName: string;
+  unit: string;
+  imageUrl?: string;
+  storageStatus: 'InStock' | 'PreOrder';
+  isKitItem: boolean;
+}
 
 export default function CustomerHome() {
   // ── States ──
-  const [selectedGradeId, setSelectedGradeId] = useState<string | null>(null);
+  // selectedGradeId can be:
+  // - undefined: Landing state (Welcome screen)
+  // - null: General Shop (Path B)
+  // - string: Grade-specific shop (Path A)
+  const [selectedGradeId, setSelectedGradeId] = useState<string | null | undefined>(undefined);
   const [selectedKit, setSelectedKit] = useState<SchoolKit | null>(null);
   
-  // Cart state
-  const [cartItems, setCartItems] = useState<SchoolKitItem[]>([]);
+  // Add-on item quantities: itemId -> quantity
+  const [addOnQuantities, setAddOnQuantities] = useState<Record<string, number>>({});
   const [includeDelivery, setIncludeDelivery] = useState<boolean>(true);
+
+  // Search & Category filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('All');
+  
+  // Pagination & Catalog list states
+  const [pageNumber, setPageNumber] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [catalogItems, setCatalogItems] = useState<Item[]>([]);
 
   // Form info
   const [name, setName] = useState('');
@@ -52,7 +82,7 @@ export default function CustomerHome() {
   const [simulatorStatus, setSimulatorStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
   const [simulatorMessage, setSimulatorMessage] = useState('');
 
-  // ── Fetch all kits to extract grades and select kits anonymously ──
+  // ── Queries ──
   const { data: kitsRes, isLoading: kitsLoading } = useQuery({
     queryKey: ['public-kits'],
     queryFn: () => kitService.getKits({ pageNumber: 1, pageSize: 100 }),
@@ -63,46 +93,178 @@ export default function CustomerHome() {
     queryFn: () => masterDataService.getGrades({ pageNumber: 1, pageSize: 100 }),
   });
 
+  const { data: categoriesRes } = useQuery({
+    queryKey: ['public-categories'],
+    queryFn: () => masterDataService.getCategories({ pageNumber: 1, pageSize: 100 }),
+  });
+
+  const { data: catalogRes, isFetching: catalogLoading } = useQuery({
+    queryKey: ['public-catalog', selectedGradeId, selectedCategoryId, debouncedSearchQuery, pageNumber],
+    queryFn: ({ signal }) => catalogService.getCatalog({
+      gradeId: null, // Fetch all items so that parents can add any catalog item as an optional add-on
+      categoryId: selectedCategoryId === 'All' ? null : selectedCategoryId,
+      searchTerm: debouncedSearchQuery,
+      pageNumber,
+      pageSize: 12
+    }, signal),
+    enabled: selectedGradeId !== undefined,
+  });
+
   const kits = kitsRes?.data || [];
   const grades = gradesRes?.data || [];
-  
-  const getDeliveryMethodText = (item: SchoolKitItem) => {
+  const categories = categoriesRes?.data || [];
+
+  const activeKits = kits.filter(k => k.isActive);
+  const activeGrades = grades
+    .filter(g => g.isActive)
+    .sort((a, b) => a.displayOrder - b.displayOrder);
+  const activeCategories = categories.filter(c => c.isActive);
+
+  // Helper styles
+  const getDeliveryMethodText = (item: { storageStatus: string }) => {
     return item.storageStatus === 'PreOrder' ? 'Classroom Delivery' : 'Home Delivery';
   };
 
-  const getDeliveryMethodStyles = (item: SchoolKitItem) => {
+  const getDeliveryMethodStyles = (item: { storageStatus: string }) => {
     return item.storageStatus === 'PreOrder'
       ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
       : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60';
   };
 
-  // Filter active kits
-  const activeKits = kits.filter(k => k.isActive);
+  // ── Debounce Search Query (300ms) ──
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setPageNumber(1);
+      setCatalogItems([]);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
-  // Get all active grades sorted by displayOrder
-  const activeGrades = grades
-    .filter(g => g.isActive)
-    .sort((a, b) => a.displayOrder - b.displayOrder);
 
-  // Map to uniqueGrades structure for compatibility with rendering
-  const uniqueGrades = activeGrades.map(g => ({ id: g.id, name: g.name }));
+
+  // ── Append items on next page, or replace on page 1 reset ──
+  useEffect(() => {
+    if (catalogRes?.data) {
+      const newItems = catalogRes.data;
+      if (pageNumber === 1) {
+        setCatalogItems(newItems);
+      } else {
+        setCatalogItems(prev => {
+          const existingIds = new Set(prev.map(i => i.id));
+          const filteredNew = newItems.filter(i => !existingIds.has(i.id));
+          return [...prev, ...filteredNew];
+        });
+      }
+
+      if (catalogRes.meta) {
+        setHasMore(catalogRes.meta.currentPage < catalogRes.meta.totalPages);
+      } else {
+        setHasMore(newItems.length >= 12);
+      }
+    }
+  }, [catalogRes, pageNumber]);
+
+  // ── Safety Rule: Force Home Delivery if Grade is Null (General Shop) ──
+  useEffect(() => {
+    if (selectedGradeId === null) {
+      setIncludeDelivery(true);
+    }
+  }, [selectedGradeId]);
 
   // ── Handlers ──
-  const handleGradeSelect = (gradeId: string) => {
+  const handleGradeSelect = (gradeId: string | null) => {
     setSelectedGradeId(gradeId);
-    const kit = activeKits.find(k => k.gradeId === gradeId) || null;
+    const kit = gradeId ? (activeKits.find(k => k.gradeId === gradeId) || null) : null;
     setSelectedKit(kit);
-    setCartItems(kit ? kit.items : []);
+    setAddOnQuantities({}); // Clear previous add-ons to prevent category leak
+    setSearchQuery('');
+    setSelectedCategoryId('All');
+    setPageNumber(1);
+    setCatalogItems([]);
   };
 
-  const handlePlaceOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedKit || cartItems.length === 0) {
-      toast.error('Please select a grade kit first.');
+  const updateAddOnQty = (itemId: string, delta: number, item: any) => {
+    const currentQty = addOnQuantities[itemId] || 0;
+    const newQty = currentQty + delta;
+    if (newQty < 0) return;
+
+    if (item.storageStatus === 'InStock' && newQty > item.stockQty) {
+      toast.error(`Only ${item.stockQty} ${item.unit} available in stock.`);
       return;
     }
 
-    // Validation
+    setAddOnQuantities(prev => {
+      const updated = { ...prev };
+      if (newQty === 0) {
+        delete updated[itemId];
+      } else {
+        updated[itemId] = newQty;
+      }
+      return updated;
+    });
+  };
+
+  // ── Cart Calculations ──
+  const kitItems: CartDisplayItem[] = selectedKit
+    ? selectedKit.items.map(ki => ({
+        itemId: ki.itemId,
+        itemName: ki.itemName,
+        price: ki.price,
+        mrp: ki.mrp,
+        quantity: ki.quantity,
+        categoryName: ki.categoryName,
+        unit: ki.unit,
+        imageUrl: ki.imageUrl,
+        storageStatus: ki.storageStatus as 'InStock' | 'PreOrder',
+        isKitItem: true
+      }))
+    : [];
+
+  const addOnItemsList: CartDisplayItem[] = Object.entries(addOnQuantities)
+    .map(([itemId, qty]): CartDisplayItem | null => {
+      const item = catalogItems.find(i => i.id === itemId);
+      if (!item) return null;
+      return {
+        itemId: item.id,
+        itemName: item.name,
+        price: item.price,
+        mrp: item.mrp,
+        quantity: qty,
+        categoryName: item.categoryName,
+        unit: item.unit,
+        imageUrl: item.imageUrl,
+        storageStatus: item.storageStatus as 'InStock' | 'PreOrder',
+        isKitItem: false
+      };
+    })
+    .filter((item): item is CartDisplayItem => item !== null);
+
+  const cartItems = [...kitItems, ...addOnItemsList];
+
+  const itemsSubtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const itemsGst = cartItems.reduce((sum, item) => sum + ((item.mrp - item.price) * item.quantity), 0);
+  const itemsTotal = itemsSubtotal + itemsGst;
+
+  const deliveryBase = includeDelivery ? 211.86 : 0;
+  const deliveryGst = includeDelivery ? 38.14 : 0;
+  const grandTotal = itemsTotal + deliveryBase + deliveryGst;
+
+  // Filter catalog items for display in the Add-on catalog grid
+  const displayCatalogItems = catalogItems.filter(item => {
+    // Hide items that are already in the mandatory kit (Option A)
+    const isInKit = kitItems.some(ki => ki.itemId === item.id);
+    return !isInKit;
+  });
+
+  // ── Place Order ──
+  const handlePlaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cartItems.length === 0) {
+      toast.error('Your cart is empty. Please add items to buy.');
+      return;
+    }
+
     if (name.trim().length < 3) {
       toast.error('Student Name must be at least 3 characters.');
       return;
@@ -130,7 +292,7 @@ export default function CustomerHome() {
         addressLine2: addressLine2,
         city: city,
         pincode: pincode,
-        gradeId: selectedKit.gradeId,
+        gradeId: selectedGradeId || null,
         items: cartItems.map(item => ({
           itemId: item.itemId,
           quantity: item.quantity
@@ -155,14 +317,13 @@ export default function CustomerHome() {
     }
   };
 
-  // ── Simulator actions ──
+  // ── Simulator Actions ──
   const handlePaymentSuccess = async () => {
     if (!createdOrder) return;
     setSimulatorStatus('processing');
     setSimulatorMessage('Initiating webhook transaction check on server...');
 
     try {
-      // Simulate Jodo signature header check (we can pass a mock transaction ID)
       const txnId = 'TXN_SIM_' + Math.floor(Math.random() * 10000000);
       const webhookPayload = {
         orderId: createdOrder.id,
@@ -199,9 +360,9 @@ export default function CustomerHome() {
   };
 
   const resetCheckout = () => {
-    setSelectedGradeId(null);
+    setSelectedGradeId(undefined); // Reset back to welcome/landing state
     setSelectedKit(null);
-    setCartItems([]);
+    setAddOnQuantities({});
     setName('');
     setEmail('');
     setMobile('');
@@ -211,17 +372,6 @@ export default function CustomerHome() {
     setShowSimulator(false);
     setSimulatorStatus('idle');
   };
-
-  // ── Price summary calculations ──
-  const itemsSubtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const itemsGst = cartItems.reduce((sum, item) => sum + ((item.mrp - item.price) * item.quantity), 0);
-  const itemsTotal = itemsSubtotal + itemsGst;
-  
-  // Home delivery logic (split base: 211.86, GST: 38.14)
-  const deliveryBase = includeDelivery ? 211.86 : 0;
-  const deliveryGst = includeDelivery ? 38.14 : 0;
-  
-  const grandTotal = itemsTotal + deliveryBase + deliveryGst;
 
   return (
     <div className="min-h-screen bg-slate-50/50">
@@ -241,7 +391,6 @@ export default function CustomerHome() {
               </span>
             </div>
           </div>
-          
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full uppercase tracking-wider">
               Parent Portal
@@ -336,7 +485,7 @@ export default function CustomerHome() {
                       onClick={resetCheckout}
                       className="w-full rounded-2xl bg-slate-900 text-white hover:bg-slate-800"
                     >
-                      Back to Grade Selection
+                      Back to Mode Selection
                     </Button>
                   </div>
                 </div>
@@ -344,7 +493,7 @@ export default function CustomerHome() {
 
               {simulatorStatus === 'failed' && (
                 <div className="text-center py-6 space-y-5 animate-in fade-in duration-300">
-                  <div className="h-16 w-16 bg-red-50 border border-red-200 rounded-full flex items-center justify-center mx-auto text-red-600">
+                  <div className="h-16 w-16 bg-red-50 border border-red-200 rounded-full flex items-center justify-center mx-auto text-red-650">
                     <XCircle className="h-10 w-10" />
                   </div>
                   <div className="space-y-2">
@@ -371,9 +520,9 @@ export default function CustomerHome() {
               )}
             </div>
           </div>
-        ) : (
-          /* PARENT BUNDLE CHECKOUT SCREEN */
-          <div className="space-y-8">
+        ) : selectedGradeId === undefined ? (
+          /* WELCOME / LANDING MODE SELECTION STATE */
+          <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
             {/* Hero Banner */}
             <div className="relative overflow-hidden bg-gradient-to-r from-himgiri-primary to-blue-700 text-white rounded-3xl p-8 lg:p-12 shadow-lg shadow-himgiri-primary/10">
               <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
@@ -384,364 +533,690 @@ export default function CustomerHome() {
                 <h1 className="text-3xl lg:text-4xl font-black tracking-tight leading-none">
                   Official DPS School Kit Distribution
                 </h1>
-                <p className="text-sm lg:text-base font-semibold text-blue-100">
-                  Select your child's grade class below to verify inventory stock bundles, customize delivery settings, and complete purchase checkout.
+                <p className="text-sm lg:text-base font-semibold text-blue-100 leading-relaxed">
+                  Welcome to the DPS Hinjawadi Parent Portal. Select your child's grade package below or skip directly to browsing the general items shop.
                 </p>
               </div>
             </div>
 
-            {/* Step 1: Grade Selection */}
-            <div className="space-y-4">
-              <h2 className="text-lg font-black text-gray-900 tracking-tight flex items-center gap-2">
-                <span className="h-6 w-6 rounded-lg bg-himgiri-primary/10 text-himgiri-primary text-xs font-extrabold flex items-center justify-center">1</span>
-                Select Child's Grade / Class
-              </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Option A: Grade Select */}
+              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft flex flex-col justify-between gap-6 hover:shadow-md transition-shadow">
+                <div className="space-y-2">
+                  <div className="h-12 w-12 bg-himgiri-primary/10 text-himgiri-primary rounded-2xl flex items-center justify-center">
+                    <GraduationCap className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-lg font-black text-gray-900">Option A: Shop by Grade / Class</h3>
+                  <p className="text-xs text-gray-500 font-semibold leading-relaxed">
+                    Select your child's grade below to automatically load the mandatory kit bundle and see recommended school items for that class.
+                  </p>
+                </div>
 
-              {kitsLoading || gradesLoading ? (
-                <div className="flex items-center justify-center py-10 gap-3">
-                  <Loader2 className="h-5 w-5 text-himgiri-primary animate-spin" />
-                  <span className="text-sm font-bold text-gray-500">Loading grade packages...</span>
+                <div className="space-y-4">
+                  {gradesLoading ? (
+                    <div className="flex items-center justify-center py-6 gap-3">
+                      <Loader2 className="h-5 w-5 text-himgiri-primary animate-spin" />
+                      <span className="text-xs font-bold text-gray-500">Loading grades...</span>
+                    </div>
+                  ) : activeGrades.length === 0 ? (
+                    <p className="text-xs text-gray-400 font-bold">No active grades found.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {activeGrades.map(grade => (
+                        <button
+                          key={grade.id}
+                          type="button"
+                          onClick={() => handleGradeSelect(grade.id)}
+                          className="p-3 rounded-xl border border-gray-200 text-center hover:border-himgiri-primary hover:bg-himgiri-primary/5 transition-all text-xs font-extrabold text-gray-700 hover:text-himgiri-primary active:scale-95"
+                        >
+                          {grade.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ) : uniqueGrades.length === 0 ? (
-                <div className="p-8 text-center bg-white rounded-3xl border border-gray-100 shadow-soft">
-                  <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-                  <p className="text-gray-500 font-bold text-sm">No school kits are currently active for checkouts.</p>
+              </div>
+
+              {/* Option B: General Shop */}
+              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft flex flex-col justify-between gap-6 hover:shadow-md transition-shadow">
+                <div className="space-y-2">
+                  <div className="h-12 w-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
+                    <ShoppingBag className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-lg font-black text-gray-900">Option B: General Items Shop</h3>
+                  <p className="text-xs text-gray-500 font-semibold leading-relaxed">
+                    Skip grade selection and browse all items directly. Perfect for buying individual textbooks, notebooks, school bags, drawing items, or replacements.
+                  </p>
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {uniqueGrades.map((grade) => (
-                    <button
-                      key={grade.id}
-                      type="button"
-                      onClick={() => handleGradeSelect(grade.id)}
-                      className={clsx(
-                        "p-4 rounded-2xl border text-center transition-all duration-300 select-none flex flex-col items-center justify-center gap-1",
-                        selectedGradeId === grade.id 
-                          ? "bg-himgiri-primary border-himgiri-primary text-white shadow-lg shadow-himgiri-primary/25 scale-102"
-                          : "bg-white border-gray-200/70 text-gray-700 hover:border-gray-300 hover:bg-gray-50/50"
-                      )}
-                    >
-                      <GraduationCap className={clsx("h-5 w-5", selectedGradeId === grade.id ? "text-white" : "text-gray-400")} />
-                      <span className="font-extrabold text-sm">{grade.name}</span>
-                    </button>
-                  ))}
+
+                <div className="pt-6">
+                  <button
+                    type="button"
+                    onClick={() => handleGradeSelect(null)}
+                    className="w-full py-4 bg-emerald-650 hover:bg-emerald-700 text-white rounded-2xl text-sm font-extrabold active:scale-98 transition-all shadow-md shadow-emerald-600/10 flex items-center justify-center gap-2"
+                  >
+                    <span>Browse General Catalog</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
                 </div>
-              )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* SHOPPING & CHECKOUT INTERFACE */
+          <div className="space-y-6 animate-in fade-in duration-500">
+            {/* Context/Mode switcher */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-soft">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedGradeId(undefined)}
+                  className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500 hover:text-gray-900"
+                  title="Go back"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 block">
+                    Current Portal Mode
+                  </span>
+                  <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5">
+                    {selectedGradeId ? (
+                      <>
+                        <GraduationCap className="h-4 w-4 text-himgiri-primary" />
+                        <span>Grade Kit: <strong>{activeGrades.find(g => g.id === selectedGradeId)?.name}</strong></span>
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingBag className="h-4 w-4 text-emerald-600" />
+                        <span>General Shop (All Items)</span>
+                      </>
+                    )}
+                  </h3>
+                </div>
+              </div>
+              
+              <button
+                type="button"
+                onClick={() => setSelectedGradeId(undefined)}
+                className="text-xs font-black text-himgiri-primary hover:text-blue-700 bg-himgiri-primary/5 px-4 py-2 rounded-xl transition-all"
+              >
+                Change Mode / Grade
+              </button>
             </div>
 
-            {/* Step 2: Choose Bundle Kit */}
-            {selectedGradeId && (
-              <div className="space-y-4 animate-in fade-in duration-300">
-                <h2 className="text-lg font-black text-gray-900 tracking-tight flex items-center gap-2">
-                  <span className="h-6 w-6 rounded-lg bg-himgiri-primary/10 text-himgiri-primary text-xs font-extrabold flex items-center justify-center">2</span>
-                  Choose Available Kit Bundle
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {activeKits.filter(k => k.gradeId === selectedGradeId).map((kit) => {
-                    const kitPrice = kit.items.reduce((sum, item) => sum + (item.mrp * item.quantity), 0);
-                    const isKitSelected = selectedKit?.id === kit.id;
-                    return (
-                      <div 
-                        key={kit.id}
-                        className={clsx(
-                          "bg-white rounded-3xl p-6 border transition-all duration-300 shadow-soft flex flex-col justify-between gap-4",
-                          isKitSelected 
-                            ? "border-himgiri-primary ring-2 ring-himgiri-primary/10" 
-                            : "border-gray-200 hover:border-gray-300"
-                        )}
-                      >
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-start">
-                            <h3 className="font-extrabold text-gray-900 text-sm leading-tight">{kit.name}</h3>
-                            <span className="font-mono font-black text-sm text-himgiri-primary shrink-0">
-                              ₹{kitPrice.toFixed(2)}
-                            </span>
-                          </div>
-                          {kit.description && (
-                            <p className="text-xs text-gray-400">{kit.description}</p>
-                          )}
-                          
-                          <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1.5 pt-1">
-                            <span>Includes {kit.items.length} items</span>
-                            <span>•</span>
-                            <span>Grade Bundle</span>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedKit(kit);
-                            setCartItems(kit.items);
-                          }}
-                          className={clsx(
-                            "w-full py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95",
-                            isKitSelected 
-                              ? "bg-himgiri-primary text-white font-bold" 
-                              : "bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100"
-                          )}
-                        >
-                          {isKitSelected ? "Selected Bundle" : "Select This Bundle"}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Left Column: Kits and Items (8 Columns) */}
+              <div className="lg:col-span-8 space-y-6">
                 
-                {activeKits.filter(k => k.gradeId === selectedGradeId).length === 0 && (
-                  <div className="p-8 text-center bg-white rounded-3xl border border-gray-100 shadow-soft">
-                    <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-                    <p className="text-gray-500 font-bold text-sm">No packages are currently active for this grade class.</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Step 3: Review Kit Items & Checkout */}
-            {selectedKit && (
-              <div className="space-y-4 animate-in fade-in duration-300">
-                <h2 className="text-lg font-black text-gray-900 tracking-tight flex items-center gap-2">
-                  <span className="h-6 w-6 rounded-lg bg-himgiri-primary/10 text-himgiri-primary text-xs font-extrabold flex items-center justify-center">3</span>
-                  Review Package & Place Order
-                </h2>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  {/* Kit Item List (Left 7 Columns) */}
-                  <div className="lg:col-span-7 bg-white rounded-3xl p-6 shadow-soft border border-gray-100 space-y-6">
+                {/* Section A: Mandatory Kit (Only for Grade Option A if kit exists) */}
+                {selectedGradeId && (
+                  <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-4">
                     <div>
-                      <h3 className="text-xl font-black text-gray-900 tracking-tight">
-                        {selectedKit.name}
-                      </h3>
-                      <p className="text-xs text-gray-400 mt-1 font-semibold">
-                        {selectedKit.description || 'Constituent bundle package content details:'}
-                      </p>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-himgiri-primary bg-himgiri-primary/10 px-2.5 py-1 rounded-full">
+                        Section A: Mandatory Kit
+                      </span>
+                      {selectedKit ? (
+                        <>
+                          <h3 className="text-lg font-black text-gray-900 tracking-tight mt-2.5">
+                            {selectedKit.name}
+                          </h3>
+                          <p className="text-xs text-gray-400 font-semibold leading-relaxed mt-1">
+                            {selectedKit.description || 'Constituent package items required for this grade:'}
+                          </p>
+                        </>
+                      ) : (
+                        <div className="mt-3 p-4 bg-amber-50/50 border border-amber-200/50 rounded-2xl text-xs font-semibold text-amber-800 flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <span>No official pre-defined kit bundle active for this grade. Select individual items below.</span>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="divide-y divide-gray-100 border border-gray-100 rounded-2xl overflow-hidden">
+                    {selectedKit && (
+                      <div className="divide-y divide-gray-100 border border-gray-150 rounded-2xl overflow-hidden bg-slate-50/20">
+                        {kitItems.map((item, idx) => (
+                          <div key={idx} className="p-3.5 flex items-center justify-between gap-4 hover:bg-gray-50/40 transition-colors">
+                            <div className="flex items-center gap-3">
+                              {item.imageUrl ? (
+                                <img 
+                                  src={item.imageUrl} 
+                                  alt={item.itemName} 
+                                  className="w-10 h-10 rounded-xl object-cover border border-gray-100 flex-shrink-0 bg-white"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-xl border border-gray-100 flex-shrink-0 bg-white flex items-center justify-center text-gray-400">
+                                  <BookOpen className="h-5 w-5" />
+                                </div>
+                              )}
+                              
+                              <div className="space-y-0.5">
+                                <span className="font-bold text-sm text-gray-900">{item.itemName}</span>
+                                <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-450 font-extrabold uppercase">
+                                  <span className="bg-white text-gray-650 border border-gray-150 px-1.5 py-0.5 rounded">{item.categoryName}</span>
+                                  <span>•</span>
+                                  <span>Qty: {item.quantity} {item.unit}</span>
+                                  <span>•</span>
+                                  <span className={`px-1.5 py-0.5 rounded border normal-case tracking-normal ${getDeliveryMethodStyles(item)}`}>
+                                    {getDeliveryMethodText(item)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="text-right">
+                              <span className="font-mono font-black text-sm text-gray-800">
+                                ₹{(item.mrp * item.quantity).toFixed(2)}
+                              </span>
+                              <span className="text-[9px] text-gray-450 font-semibold block leading-none">
+                                (Incl. GST)
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Section B: Add-on items Catalog */}
+                <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-6">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
+                      {selectedKit ? "Section B: Optional Add-ons" : "Available Catalog Items"}
+                    </span>
+                    <h3 className="text-lg font-black text-gray-900 tracking-tight mt-2.5">
+                      {selectedKit ? "Add Additional Items" : "Browse & Add Items"}
+                    </h3>
+                    <p className="text-xs text-gray-400 font-semibold mt-1">
+                      {selectedKit 
+                        ? "Customize your bundle by adding extra drawing tools, bags, notebooks, or replacement items:"
+                        : "Choose the items you wish to purchase below:"}
+                    </p>
+                  </div>
+
+                  {/* Filter controls */}
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search items by name or description..."
+                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Category pills */}
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategoryId('All');
+                          setPageNumber(1);
+                          setCatalogItems([]);
+                        }}
+                        className={clsx(
+                          "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
+                          selectedCategoryId === 'All'
+                            ? "bg-slate-900 border-slate-900 text-white"
+                            : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                        )}
+                      >
+                        All Categories
+                      </button>
+                      {activeCategories.map(cat => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategoryId(cat.id);
+                            setPageNumber(1);
+                            setCatalogItems([]);
+                          }}
+                          className={clsx(
+                            "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
+                            selectedCategoryId === cat.id
+                              ? "bg-slate-900 border-slate-900 text-white"
+                              : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                          )}
+                        >
+                          {cat.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Items catalog grid */}
+                  {catalogLoading ? (
+                    <div className="flex items-center justify-center py-12 gap-3">
+                      <Loader2 className="h-5 w-5 text-himgiri-primary animate-spin" />
+                      <span className="text-xs font-bold text-gray-500 font-mono">Loading catalog items...</span>
+                    </div>
+                  ) : displayCatalogItems.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 border border-dashed border-gray-250 rounded-2xl">
+                      <p className="text-gray-400 font-bold text-xs">No active shop items match your search or category filter.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {displayCatalogItems.map(item => (
+                        <div 
+                          key={item.id} 
+                          className="bg-white rounded-2xl border border-gray-150 p-4 hover:border-gray-300 hover:shadow-sm transition-all duration-300 flex flex-col justify-between gap-4"
+                        >
+                          <div className="space-y-3">
+                            <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 border border-gray-100 flex items-center justify-center">
+                              {item.imageUrl ? (
+                                <img 
+                                  src={item.imageUrl} 
+                                  alt={item.name} 
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <BookOpen className="h-10 w-10 text-slate-355" />
+                              )}
+                              
+                              <span className={clsx(
+                                "absolute top-2 left-2 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border shadow-sm",
+                                getDeliveryMethodStyles(item)
+                              )}>
+                                {getDeliveryMethodText(item)}
+                              </span>
+                              
+                              <span className="absolute bottom-2 right-2 text-[8px] font-black bg-slate-900/75 text-white px-2 py-0.5 rounded-md uppercase tracking-wider backdrop-blur-sm">
+                                {item.categoryName}
+                              </span>
+                            </div>
+
+                            <div className="space-y-1">
+                              <h4 className="font-extrabold text-sm text-gray-900 line-clamp-1 leading-tight" title={item.name}>
+                                {item.name}
+                              </h4>
+                              {item.description ? (
+                                <p className="text-[11px] text-gray-400 font-semibold line-clamp-2 leading-snug">
+                                  {item.description}
+                                </p>
+                              ) : (
+                                <p className="text-[11px] text-gray-300 font-semibold italic">No description available</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <div className="flex items-center justify-between">
+                              <div className="space-y-0.5">
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className="font-mono font-black text-sm text-himgiri-primary">
+                                    ₹{item.mrp.toFixed(2)}
+                                  </span>
+                                  {item.price < item.mrp && (
+                                    <span className="font-mono text-[10px] text-gray-450 line-through">
+                                      ₹{item.price.toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {item.storageStatus === 'InStock' && (
+                                  <span className={clsx(
+                                    "text-[9px] font-extrabold uppercase tracking-wider block",
+                                    item.stockQty <= 0 
+                                      ? "text-red-500 font-black" 
+                                      : item.stockQty <= 5 
+                                        ? "text-amber-500 animate-pulse font-black" 
+                                        : "text-gray-400"
+                                  )}>
+                                    {item.stockQty <= 0 
+                                      ? "Out of Stock" 
+                                      : `Only ${item.stockQty} ${item.unit} left`}
+                                  </span>
+                                )}
+                                {item.storageStatus === 'PreOrder' && (
+                                  <span className="text-[9px] font-extrabold uppercase tracking-wider text-blue-500 block">
+                                    Pre-order Available
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div>
+                                {(addOnQuantities[item.id] || 0) > 0 ? (
+                                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl p-1 shadow-inner scale-95">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateAddOnQty(item.id, -1, item)}
+                                      className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-gray-100 text-gray-750 active:scale-90 transition-all flex items-center justify-center font-black text-sm border border-gray-200"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="w-5 text-center font-black text-xs text-gray-805">
+                                      {addOnQuantities[item.id]}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateAddOnQty(item.id, 1, item)}
+                                      disabled={item.storageStatus === 'InStock' && (addOnQuantities[item.id] || 0) >= item.stockQty}
+                                      className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-gray-150 text-gray-755 active:scale-90 disabled:opacity-40 disabled:hover:bg-white disabled:active:scale-100 transition-all flex items-center justify-center font-black text-sm border border-gray-200"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={item.storageStatus === 'InStock' && item.stockQty <= 0}
+                                    onClick={() => updateAddOnQty(item.id, 1, item)}
+                                    className={clsx(
+                                      "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 border shadow-sm",
+                                      item.storageStatus === 'InStock' && item.stockQty <= 0
+                                        ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
+                                        : "bg-himgiri-primary border-himgiri-primary text-white hover:bg-blue-750 hover:border-blue-750"
+                                    )}
+                                  >
+                                    {item.storageStatus === 'InStock' && item.stockQty <= 0 ? "Sold Out" : "Add to Cart"}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {hasMore && (
+                    <div className="flex justify-center pt-6 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={() => setPageNumber(p => p + 1)}
+                        disabled={catalogLoading}
+                        className="px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl text-xs font-black hover:bg-gray-50 active:scale-95 transition-all shadow-sm flex items-center gap-2"
+                      >
+                        {catalogLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                            <span>Loading...</span>
+                          </>
+                        ) : (
+                          <span>Load More Items</span>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Checkout & Cart summary (4 Columns) */}
+              <div className="lg:col-span-4 space-y-6 sticky top-24">
+                
+                {/* Cart review */}
+                <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-4">
+                  <h4 className="text-sm font-black uppercase tracking-wider text-gray-800">
+                    Order Summary
+                  </h4>
+
+                  {cartItems.length === 0 ? (
+                    <div className="py-8 text-center text-gray-400 text-xs font-bold bg-slate-50 rounded-2xl border border-dashed border-gray-200">
+                      Cart is empty
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100 border border-gray-150 rounded-2xl overflow-hidden bg-slate-50/20 max-h-60 overflow-y-auto">
                       {cartItems.map((item, idx) => (
-                        <div key={idx} className="p-4 flex items-center justify-between gap-4 hover:bg-gray-50/40 transition-colors">
-                          <div className="flex items-center gap-3">
-                            {/* Thumbnail */}
+                        <div key={idx} className="p-3 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             {item.imageUrl ? (
                               <img 
                                 src={item.imageUrl} 
                                 alt={item.itemName} 
-                                className="w-12 h-12 rounded-xl object-cover border border-gray-100 flex-shrink-0 bg-gray-50"
+                                className="w-8 h-8 rounded-lg object-cover border border-gray-100 flex-shrink-0 bg-white"
                               />
                             ) : (
-                              <div className="w-12 h-12 rounded-xl border border-gray-100 flex-shrink-0 bg-gray-50 flex items-center justify-center text-gray-400">
-                                <BookOpen className="h-5 w-5" />
+                              <div className="w-8 h-8 rounded-lg border border-gray-100 flex-shrink-0 bg-white flex items-center justify-center text-gray-400">
+                                <BookOpen className="h-4 w-4" />
                               </div>
                             )}
                             
-                            <div className="space-y-0.5">
-                              <span className="font-bold text-sm text-gray-900">{item.itemName}</span>
-                              <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400 font-extrabold uppercase">
-                                <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.categoryName}</span>
-                                <span>•</span>
-                                <span>Qty: {item.quantity} {item.unit}</span>
-                                <span>•</span>
-                                <span className={`px-1.5 py-0.5 rounded normal-case tracking-normal border ${getDeliveryMethodStyles(item)}`}>
-                                  {getDeliveryMethodText(item)}
-                                </span>
-                              </div>
+                            <div className="space-y-0.5 min-w-0">
+                              <span className="font-bold text-xs text-gray-900 block truncate" title={item.itemName}>
+                                {item.itemName}
+                              </span>
+                              <span className="text-[8px] font-black uppercase bg-white border border-gray-200 text-gray-500 px-1 py-0.2 rounded">
+                                {item.categoryName}
+                              </span>
                             </div>
                           </div>
-                          
-                          <div className="text-right">
-                            <span className="font-mono font-black text-sm text-gray-800">
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {item.isKitItem ? (
+                              <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                                {item.quantity} (Kit)
+                              </span>
+                            ) : (
+                              <div className="flex items-center bg-white border border-gray-200 rounded-lg p-0.5 scale-90 shadow-sm">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const catItem = catalogItems.find(i => i.id === item.itemId);
+                                    if (catItem) updateAddOnQty(item.itemId, -1, catItem);
+                                  }}
+                                  className="h-5 w-5 rounded bg-gray-55 text-gray-700 hover:bg-gray-100 active:scale-90 flex items-center justify-center font-bold text-[10px]"
+                                >
+                                  -
+                                </button>
+                                <span className="w-4 text-center font-black text-[10px] text-gray-800">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const catItem = catalogItems.find(i => i.id === item.itemId);
+                                    if (catItem) updateAddOnQty(item.itemId, 1, catItem);
+                                  }}
+                                  disabled={item.storageStatus === 'InStock' && (() => {
+                                    const catItem = catalogItems.find(i => i.id === item.itemId);
+                                    return catItem ? item.quantity >= catItem.stockQty : false;
+                                  })()}
+                                  className="h-5 w-5 rounded bg-gray-55 text-gray-700 hover:bg-gray-100 active:scale-90 disabled:opacity-40 disabled:hover:bg-white flex items-center justify-center font-bold text-[10px]"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            )}
+
+                            <span className="font-mono font-black text-xs text-gray-800 w-14 text-right">
                               ₹{(item.mrp * item.quantity).toFixed(2)}
-                            </span>
-                            <span className="text-[10px] text-gray-400 font-semibold block leading-none">
-                              (Incl. GST)
                             </span>
                           </div>
                         </div>
                       ))}
                     </div>
+                  )}
+                </div>
+
+                {/* Delivery Option */}
+                <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-4">
+                  <h4 className="text-sm font-black uppercase tracking-wider text-gray-800">
+                    Delivery Method Selection
+                  </h4>
+                  
+                  {selectedGradeId === null && (
+                    <div className="p-3 bg-amber-50 border border-amber-200/60 rounded-2xl text-[10px] font-semibold text-amber-800 flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                      <span>Classroom Delivery requires grade class selection. Forced Home Delivery is selected.</span>
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIncludeDelivery(true)}
+                      className={clsx(
+                        "p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all select-none",
+                        includeDelivery 
+                          ? "border-himgiri-primary bg-himgiri-primary/[0.03] ring-2 ring-himgiri-primary/10" 
+                          : "border-gray-200 hover:bg-gray-50/50"
+                      )}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <Truck className={clsx("h-5 w-5", includeDelivery ? "text-himgiri-primary" : "text-gray-400")} />
+                        {includeDelivery && <div className="h-4 w-4 bg-himgiri-primary rounded-full flex items-center justify-center text-white"><Check className="h-2.5 w-2.5" /></div>}
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-gray-950 block">Home Delivery</span>
+                        <span className="text-[10px] text-gray-400 font-semibold">₹250 flat charges</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={selectedGradeId === null}
+                      onClick={() => setIncludeDelivery(false)}
+                      className={clsx(
+                        "p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all select-none",
+                        !includeDelivery 
+                          ? "border-himgiri-primary bg-himgiri-primary/[0.03] ring-2 ring-himgiri-primary/10" 
+                          : "border-gray-200 hover:bg-gray-50/50",
+                        selectedGradeId === null && "opacity-45 cursor-not-allowed bg-slate-50 border-gray-200"
+                      )}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <School className={clsx("h-5 w-5", !includeDelivery ? "text-himgiri-primary" : "text-gray-400")} />
+                        {!includeDelivery && <div className="h-4 w-4 bg-himgiri-primary rounded-full flex items-center justify-center text-white"><Check className="h-2.5 w-2.5" /></div>}
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-gray-950 block">Class Delivery</span>
+                        <span className="text-[10px] text-gray-400 font-semibold">Handover (Free)</span>
+                      </div>
+                    </button>
                   </div>
+                </div>
 
-                  {/* Checkout & Delivery info (Right 5 Columns) */}
-                  <div className="lg:col-span-5 space-y-6">
-                    {/* Delivery Selection */}
-                    <div className="bg-white rounded-3xl p-6 shadow-soft border border-gray-100 space-y-4">
-                      <h4 className="text-sm font-black uppercase tracking-wider text-gray-800">
-                        Delivery Method Selection
-                      </h4>
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setIncludeDelivery(true)}
-                          className={clsx(
-                            "p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all",
-                            includeDelivery 
-                              ? "border-himgiri-primary bg-himgiri-primary/[0.03] ring-2 ring-himgiri-primary/10" 
-                              : "border-gray-200 hover:bg-gray-50"
-                          )}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <Truck className={clsx("h-5 w-5", includeDelivery ? "text-himgiri-primary" : "text-gray-400")} />
-                            {includeDelivery && <div className="h-4 w-4 bg-himgiri-primary rounded-full flex items-center justify-center text-white"><Check className="h-2.5 w-2.5" /></div>}
-                          </div>
-                          <div>
-                            <span className="font-bold text-xs text-gray-950 block">Home Delivery</span>
-                            <span className="text-[10px] text-gray-400 font-semibold">₹250 flat charges</span>
-                          </div>
-                        </button>
+                {/* Form & Price summary */}
+                <form onSubmit={handlePlaceOrder} className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-4">
+                  <h4 className="text-sm font-black uppercase tracking-wider text-gray-800">
+                    Student & Shipping Info
+                  </h4>
 
-                        <button
-                          type="button"
-                          onClick={() => setIncludeDelivery(false)}
-                          className={clsx(
-                            "p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all",
-                            !includeDelivery 
-                              ? "border-himgiri-primary bg-himgiri-primary/[0.03] ring-2 ring-himgiri-primary/10" 
-                              : "border-gray-200 hover:bg-gray-50"
-                          )}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <School className={clsx("h-5 w-5", !includeDelivery ? "text-himgiri-primary" : "text-gray-400")} />
-                            {!includeDelivery && <div className="h-4 w-4 bg-himgiri-primary rounded-full flex items-center justify-center text-white"><Check className="h-2.5 w-2.5" /></div>}
-                          </div>
-                          <div>
-                            <span className="font-bold text-xs text-gray-950 block">Class Delivery</span>
-                            <span className="text-[10px] text-gray-400 font-semibold">Handover (Free)</span>
-                          </div>
-                        </button>
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Student Full Name"
+                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="relative">
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="Mobile (10 digits)"
+                          className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
+                          value={mobile}
+                          onChange={(e) => setMobile(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="email"
+                          required
+                          placeholder="Parent Email"
+                          className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                        />
                       </div>
                     </div>
 
-                    {/* Delivery Detail Form */}
-                    <form onSubmit={handlePlaceOrder} className="bg-white rounded-3xl p-6 shadow-soft border border-gray-100 space-y-4">
-                      <h4 className="text-sm font-black uppercase tracking-wider text-gray-800">
-                        Student & Parent Contact Details
-                      </h4>
+                    <div className="relative">
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Address Line 1"
+                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
+                        value={addressLine1}
+                        onChange={(e) => setAddressLine1(e.target.value)}
+                      />
+                    </div>
 
-                      <div className="space-y-3">
-                        <div className="relative">
-                          <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <input
-                            type="text"
-                            required
-                            placeholder="Student Full Name"
-                            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="relative">
-                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input
-                              type="text"
-                              required
-                              placeholder="Mobile (10 digits)"
-                              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                              value={mobile}
-                              onChange={(e) => setMobile(e.target.value)}
-                            />
-                          </div>
-
-                          <div className="relative">
-                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input
-                              type="email"
-                              required
-                              placeholder="Parent Email"
-                              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                              value={email}
-                              onChange={(e) => setEmail(e.target.value)}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="relative">
-                          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <input
-                            type="text"
-                            required
-                            placeholder="Address Line 1"
-                            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                            value={addressLine1}
-                            onChange={(e) => setAddressLine1(e.target.value)}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <input
-                            type="text"
-                            placeholder="Address Line 2 (Opt)"
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all sm:col-span-1"
-                            value={addressLine2}
-                            onChange={(e) => setAddressLine2(e.target.value)}
-                          />
-                          <input
-                            type="text"
-                            required
-                            placeholder="City"
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                            value={city}
-                            onChange={(e) => setCity(e.target.value)}
-                          />
-                          <input
-                            type="text"
-                            required
-                            placeholder="Pincode (6 Digits)"
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                            value={pincode}
-                            onChange={(e) => setPincode(e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Price Summary */}
-                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-semibold space-y-2 mt-4">
-                        <div className="flex justify-between text-gray-500">
-                          <span>Items Total (MRP Incl. GST)</span>
-                          <span className="font-mono">₹{itemsTotal.toFixed(2)}</span>
-                        </div>
-                        
-                        <div className="flex justify-between text-gray-500">
-                          <span>Delivery & Handling Fee</span>
-                          <span className="font-mono">₹{deliveryBase.toFixed(2)}</span>
-                        </div>
-                        
-                        <div className="flex justify-between text-gray-500">
-                          <span>Delivery GST (18%)</span>
-                          <span className="font-mono">₹{deliveryGst.toFixed(2)}</span>
-                        </div>
-
-                        <div className="flex justify-between text-sm font-black text-gray-900 border-t border-gray-200/50 pt-2 mt-2">
-                          <span>Grand Total</span>
-                          <span className="font-mono text-base text-himgiri-primary">₹{grandTotal.toFixed(2)}</span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={isPlacingOrder}
-                        className="w-full mt-2 py-4 rounded-2xl bg-himgiri-primary text-white font-extrabold hover:bg-himgiri-primary-dark transition-all active:scale-98 shadow-lg shadow-himgiri-primary/20 flex items-center justify-center gap-2"
-                      >
-                        {isPlacingOrder ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span>Generating Checkout Invoice...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>Proceed to Secure Checkout</span>
-                            <ChevronRight className="h-4 w-4" />
-                          </>
-                        )}
-                      </button>
-                    </form>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        placeholder="Address Line 2 (Opt)"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all sm:col-span-1"
+                        value={addressLine2}
+                        onChange={(e) => setAddressLine2(e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="City"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Pincode (6 Digits)"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
+                        value={pincode}
+                        onChange={(e) => setPincode(e.target.value)}
+                      />
+                    </div>
                   </div>
-                </div>
+
+                  {/* Price Summary */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-semibold space-y-2 mt-4">
+                    <div className="flex justify-between text-gray-500">
+                      <span>Items Total (MRP Incl. GST)</span>
+                      <span className="font-mono">₹{itemsTotal.toFixed(2)}</span>
+                    </div>
+                    
+                    <div className="flex justify-between text-gray-500">
+                      <span>Delivery & Handling Fee</span>
+                      <span className="font-mono">₹{deliveryBase.toFixed(2)}</span>
+                    </div>
+                    
+                    <div className="flex justify-between text-gray-500">
+                      <span>Delivery GST (18%)</span>
+                      <span className="font-mono">₹{deliveryGst.toFixed(2)}</span>
+                    </div>
+
+                    <div className="flex justify-between text-sm font-black text-gray-900 border-t border-gray-200/50 pt-2 mt-2">
+                      <span>Grand Total</span>
+                      <span className="font-mono text-base text-himgiri-primary">₹{grandTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isPlacingOrder || cartItems.length === 0}
+                    className="w-full mt-2 py-4 rounded-2xl bg-himgiri-primary text-white font-extrabold hover:bg-blue-700 disabled:opacity-45 disabled:hover:bg-himgiri-primary disabled:active:scale-100 transition-all active:scale-98 shadow-lg shadow-himgiri-primary/20 flex items-center justify-center gap-2"
+                  >
+                    {isPlacingOrder ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Generating Invoice...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Proceed to Secure Checkout</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
               </div>
-            )}
+            </div>
           </div>
         )}
       </main>
