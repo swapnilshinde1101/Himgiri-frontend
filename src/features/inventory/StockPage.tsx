@@ -17,7 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   TrendingDown,
-  TrendingUp
+  TrendingUp,
+  BookOpen
 } from 'lucide-react';
 import Button from '../../components/shared/Button';
 import Badge from '../../components/shared/Badge';
@@ -291,7 +292,20 @@ export default function StockPage() {
                       )}
                     >
                       <td className="px-6 py-5">
-                        <div className="font-semibold text-gray-900 leading-tight">{item.name}</div>
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-gray-50 flex-shrink-0 overflow-hidden border border-gray-150 flex items-center justify-center bg-white">
+                            {item.imageUrl ? (
+                              <img 
+                                src={item.imageUrl.split(',')[0]} 
+                                alt={item.name} 
+                                className="h-full w-full object-cover" 
+                              />
+                            ) : (
+                              <BookOpen className="h-5 w-5 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="font-semibold text-gray-900 leading-tight">{item.name}</div>
+                        </div>
                       </td>
                       <td className="px-6 py-5 text-center">
                         <div className="flex flex-col items-center gap-1">

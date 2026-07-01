@@ -78,4 +78,16 @@ export const inventoryService = {
     const { data } = await api.get<ApiResponse<DashboardStats>>('/items/dashboard/stats');
     return data;
   },
+
+  uploadImage: async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const { data } = await api.post<ApiResponse<{ imageUrl: string }>>('/items/upload-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return data.data.imageUrl;
+  },
 };

@@ -23,10 +23,17 @@ import {
   Mail,
   BookOpen,
   ArrowLeft,
-  Search
+  Search,
+  X
 } from 'lucide-react';
 import Button from '../../components/shared/Button';
 import toast from 'react-hot-toast';
+import { 
+  validateIndianMobile, 
+  validatePincode, 
+  validateEmail, 
+  validateRequired 
+} from '../../utils/validation';
 import { clsx } from 'clsx';
 import type { SchoolKit, Item } from '../../types';
 
@@ -55,6 +62,211 @@ export default function CustomerHome() {
   // Add-on item quantities: itemId -> quantity
   const [addOnQuantities, setAddOnQuantities] = useState<Record<string, number>>({});
   const [includeDelivery, setIncludeDelivery] = useState<boolean>(true);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<any | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState<number>(0);
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [selectedDetailItem]);
+
+  const [mapLocation, setMapLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showMap, setShowMap] = useState<boolean>(false);
+  const [mapSearchVal, setMapSearchVal] = useState('');
+  const mapInstanceRef = React.useRef<any>(null);
+  const markerInstanceRef = React.useRef<any>(null);
+
+  // Load Leaflet Script and Stylesheet dynamically
+  useEffect(() => {
+    if (!showMap) return;
+    if (document.getElementById('leaflet-css')) return;
+
+    const link = document.createElement('link');
+    link.id = 'leaflet-css';
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(link);
+
+    const script = document.createElement('script');
+    script.id = 'leaflet-js';
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.async = true;
+    document.body.appendChild(script);
+  }, [showMap]);
+
+  // Auto detect location when map picker is shown
+  useEffect(() => {
+    if (showMap) {
+      handleDetectLocation();
+    }
+  }, [showMap]);
+
+  // Initialize/Update Map container
+  useEffect(() => {
+    if (!showMap) {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerInstanceRef.current = null;
+      }
+      return;
+    }
+
+    const timer = setInterval(() => {
+      if (!(window as any).L) return; // Wait for Leaflet to be fully loaded
+      clearInterval(timer);
+
+      const defaultLat = mapLocation ? mapLocation.lat : 18.5204;
+      const defaultLng = mapLocation ? mapLocation.lng : 73.8567;
+
+      const mapContainer = document.getElementById('delivery-map');
+      if (!mapContainer || mapInstanceRef.current) return;
+
+      const L = (window as any).L;
+      const map = L.map('delivery-map').setView([defaultLat, defaultLng], 14);
+      mapInstanceRef.current = map;
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Custom red SVG marker with pulse radar ring
+      const redMarkerIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div class="relative flex items-center justify-center">
+                 <div class="w-8 h-8 rounded-full bg-blue-500/25 absolute animate-ping" style="animation-duration: 2s;" />
+                 <svg class="w-8 h-8 text-red-500 filter drop-shadow relative z-10" fill="currentColor" viewBox="0 0 24 24">
+                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                 </svg>
+               </div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
+      });
+
+      const marker = L.marker([defaultLat, defaultLng], { draggable: true, icon: redMarkerIcon }).addTo(map);
+      markerInstanceRef.current = marker;
+
+      map.on('click', (e: any) => {
+        const { lat, lng } = e.latlng;
+        marker.setLatLng([lat, lng]);
+        setMapLocation({ lat: parseFloat(lat.toFixed(6)), lng: parseFloat(lng.toFixed(6)) });
+      });
+
+      marker.on('dragend', () => {
+        const position = marker.getLatLng();
+        setMapLocation({ lat: parseFloat(position.lat.toFixed(6)), lng: parseFloat(position.lng.toFixed(6)) });
+      });
+
+      if (!mapLocation) {
+        setMapLocation({ lat: defaultLat, lng: defaultLng });
+      }
+    }, 200);
+
+    return () => clearInterval(timer);
+  }, [showMap]);
+
+  // Reverse Geocoding to auto-fill address details with 800ms debounce
+  useEffect(() => {
+    if (!mapLocation) return;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${mapLocation.lat}&lon=${mapLocation.lng}`,
+          { signal: controller.signal }
+        );
+        const data = await res.json();
+        if (data && data.address) {
+          const addr = data.address;
+          
+          // Auto-fill City
+          const detectedCity = addr.city || addr.town || addr.village || addr.suburb || 'Pune';
+          setCity(detectedCity);
+
+          // Auto-fill Pincode
+          if (addr.postcode) {
+            setPincode(addr.postcode.replace(/\s/g, ''));
+          }
+
+          // Auto-fill Address Line 1
+          const road = addr.road || addr.suburb || addr.neighbourhood || '';
+          const suburb = addr.suburb || addr.county || '';
+          let line1 = `${road}${road && suburb ? ', ' : ''}${suburb}`;
+          if (data.display_name && !line1) {
+            line1 = data.display_name.split(',').slice(0, 2).join(', ');
+          }
+          if (line1) {
+            setAddressLine1(line1);
+          }
+          toast.success('Address auto-filled from map pin!', { id: 'reverse-geo' });
+        }
+      } catch (err) {
+        // Ignore lookup errors
+      }
+    }, 800);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [mapLocation]);
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser.');
+      return;
+    }
+    toast.loading('Detecting your location...', { id: 'geo-locating' });
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const lat = parseFloat(latitude.toFixed(6));
+        const lng = parseFloat(longitude.toFixed(6));
+        setMapLocation({ lat, lng });
+        toast.success('Location detected successfully!', { id: 'geo-locating' });
+
+        if (mapInstanceRef.current && markerInstanceRef.current) {
+          mapInstanceRef.current.setView([lat, lng], 16);
+          markerInstanceRef.current.setLatLng([lat, lng]);
+        }
+      },
+      () => {
+        toast.error('Could not retrieve your location. Please select it manually on the map.', { id: 'geo-locating' });
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
+    );
+  };
+
+  const handleMapSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mapSearchVal.trim()) return;
+
+    toast.loading(`Searching for "${mapSearchVal}"...`, { id: 'map-search' });
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(mapSearchVal)}`
+      );
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const { lat, lon } = data[0];
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lon);
+        
+        setMapLocation({ lat: latitude, lng: longitude });
+        toast.success('Location found!', { id: 'map-search' });
+
+        if (mapInstanceRef.current && markerInstanceRef.current) {
+          mapInstanceRef.current.setView([latitude, longitude], 16);
+          markerInstanceRef.current.setLatLng([latitude, longitude]);
+        }
+      } else {
+        toast.error('Location not found. Please try another place name.', { id: 'map-search' });
+      }
+    } catch (err) {
+      toast.error('Search failed. Please select manually.', { id: 'map-search' });
+    }
+  };
+
 
   // Search & Category filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,6 +274,57 @@ export default function CustomerHome() {
   const [selectedCategoryId, setSelectedCategoryId] = useState('All');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number>(-1);
+
+  // Reset page number on category change
+  useEffect(() => {
+    setPageNumber(1);
+  }, [selectedCategoryId]);
+
+  // Reset active suggestion index when suggestions list or dropdown status changes
+  useEffect(() => {
+    setActiveSuggestionIndex(-1);
+  }, [suggestions, showSuggestions]);
+
+  // Autocomplete matching text highlight
+  const highlightMatch = (text: string, query: string) => {
+    if (!query) return <span>{text}</span>;
+    const parts = text.split(new RegExp(`(${query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi'));
+    return (
+      <span>
+        {parts.map((part, i) => 
+          part.toLowerCase() === query.toLowerCase() 
+            ? <strong key={i} className="text-blue-600 font-extrabold">{part}</strong> 
+            : <span key={i}>{part}</span>
+        )}
+      </span>
+    );
+  };
+
+  // Keyboard navigation for suggestions dropdown
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showSuggestions && suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveSuggestionIndex(prev => (prev + 1) % suggestions.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveSuggestionIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
+          const selected = suggestions[activeSuggestionIndex];
+          setSearchQuery(selected);
+          setDebouncedSearchQuery(selected);
+          setPageNumber(1);
+          setShowSuggestions(false);
+        }
+      } else if (e.key === 'Escape') {
+        setShowSuggestions(false);
+      }
+    }
+  };
+
   
   // Pagination & Catalog list states
   const [pageNumber, setPageNumber] = useState(1);
@@ -69,7 +332,8 @@ export default function CustomerHome() {
   const [catalogItems, setCatalogItems] = useState<Item[]>([]);
 
   // Form info
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
   const [addressLine1, setAddressLine1] = useState('');
@@ -245,8 +509,16 @@ export default function CustomerHome() {
 
   const cartItems = [...kitItems, ...addOnItemsList];
 
+  const getGstPercentByName = (categoryName: string) => {
+    const cat = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+    return cat && cat.isTaxable ? cat.gstPercent : 0;
+  };
+
   const itemsSubtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const itemsGst = cartItems.reduce((sum, item) => sum + ((item.mrp - item.price) * item.quantity), 0);
+  const itemsGst = cartItems.reduce((sum, item) => {
+    const gstPercent = getGstPercentByName(item.categoryName);
+    return sum + (item.price * item.quantity * (gstPercent / 100));
+  }, 0);
   const itemsTotal = itemsSubtotal + itemsGst;
 
   const deliveryBase = includeDelivery ? 211.86 : 0;
@@ -268,31 +540,51 @@ export default function CustomerHome() {
       return;
     }
 
-    if (name.trim().length < 3) {
-      toast.error('Student Name must be at least 3 characters.');
+    if (!validateRequired(firstName)) {
+      toast.error('First Name is required.');
       return;
     }
-    if (!/^[6-9]\d{9}$/.test(mobile)) {
+    if (!validateRequired(lastName)) {
+      toast.error('Last Name is required.');
+      return;
+    }
+    if (!validateIndianMobile(mobile)) {
       toast.error('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
       return;
     }
-    if (!/^\d{6}$/.test(pincode)) {
+    if (email.trim() && !validateEmail(email)) {
+      toast.error('Please enter a valid parent email address.');
+      return;
+    }
+    if (!validateRequired(addressLine1)) {
+      toast.error('Address Line 1 is required.');
+      return;
+    }
+    if (!validatePincode(pincode)) {
       toast.error('Pincode must be exactly 6 digits.');
       return;
     }
-    if (!addressLine1.trim()) {
-      toast.error('Address Line 1 is required.');
+
+    if (includeDelivery && !mapLocation) {
+      toast.error('Please select your delivery location on the map to help us deliver your order.');
+      setShowMap(true);
       return;
     }
 
     setIsPlacingOrder(true);
     try {
+      const finalAddressLine2 = mapLocation 
+        ? `${addressLine2} (Map: https://maps.google.com/?q=${mapLocation.lat},${mapLocation.lng})`.trim()
+        : addressLine2;
+
+      const customerName = `${firstName} ${lastName}`.trim();
+
       const orderReq = {
-        customerName: name,
+        customerName: customerName,
         email: email,
         mobile: mobile,
         addressLine1: addressLine1,
-        addressLine2: addressLine2,
+        addressLine2: finalAddressLine2,
         city: city,
         pincode: pincode,
         gradeId: selectedGradeId || null,
@@ -366,7 +658,8 @@ export default function CustomerHome() {
     setSelectedGradeId(undefined); // Reset back to welcome/landing state
     setSelectedKit(null);
     setAddOnQuantities({});
-    setName('');
+    setFirstName('');
+    setLastName('');
     setEmail('');
     setMobile('');
     setAddressLine1('');
@@ -680,10 +973,31 @@ export default function CustomerHome() {
                       <div className="divide-y divide-gray-100 border border-gray-150 rounded-2xl overflow-hidden bg-slate-50/20">
                         {kitItems.map((item, idx) => (
                           <div key={idx} className="p-3.5 flex items-center justify-between gap-4 hover:bg-gray-50/40 transition-colors">
-                            <div className="flex items-center gap-3">
+                            <div 
+                              className="flex items-center gap-3 cursor-pointer group/item" 
+                              onClick={() => {
+                                const catItem = catalogItems.find(ci => ci.id === item.itemId);
+                                if (catItem) {
+                                  setSelectedDetailItem(catItem);
+                                } else {
+                                  setSelectedDetailItem({
+                                    id: item.itemId,
+                                    name: item.itemName,
+                                    price: item.price,
+                                    mrp: item.mrp,
+                                    categoryName: item.categoryName,
+                                    unit: item.unit,
+                                    imageUrl: item.imageUrl,
+                                    storageStatus: item.storageStatus,
+                                    description: 'This is a constituent item inside the selected School Kit.',
+                                    stockQty: item.storageStatus === 'InStock' ? 999 : 0
+                                  });
+                                }
+                              }}
+                            >
                               {item.imageUrl ? (
                                 <img 
-                                  src={item.imageUrl} 
+                                  src={item.imageUrl.split(',')[0]} 
                                   alt={item.itemName} 
                                   className="w-10 h-10 rounded-xl object-cover border border-gray-100 flex-shrink-0 bg-white"
                                 />
@@ -764,7 +1078,11 @@ export default function CustomerHome() {
                         value={searchQuery}
                         onFocus={() => setShowSuggestions(true)}
                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          setPageNumber(1);
+                        }}
                       />
 
                       {/* Right: Search icon button */}
@@ -779,22 +1097,28 @@ export default function CustomerHome() {
                     {/* Autocomplete Suggestions Dropdown */}
                     {showSuggestions && suggestions.length > 0 && (
                       <div className="absolute z-20 left-0 right-0 top-full mt-1.5 bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-200">
-                        {suggestions.map((suggestion, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              setSearchQuery(suggestion);
-                              setDebouncedSearchQuery(suggestion);
-                              setPageNumber(1);
-                              setShowSuggestions(false);
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 hover:bg-slate-50 hover:text-gray-950 transition-colors flex items-center gap-2 border-b border-slate-50 last:border-0"
-                          >
-                            <Search className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                            <span className="truncate">{suggestion}</span>
-                          </button>
-                        ))}
+                        {suggestions.map((suggestion, idx) => {
+                          const isActive = idx === activeSuggestionIndex;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setSearchQuery(suggestion);
+                                setDebouncedSearchQuery(suggestion);
+                                setPageNumber(1);
+                                setShowSuggestions(false);
+                              }}
+                              className={clsx(
+                                "w-full text-left px-4 py-2.5 text-xs font-semibold hover:text-gray-950 transition-colors flex items-center gap-2 border-b border-slate-50 last:border-0",
+                                isActive ? "bg-slate-100 text-slate-900" : "text-gray-700 hover:bg-slate-50"
+                              )}
+                            >
+                              <Search className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                              <span className="truncate">{highlightMatch(suggestion, searchQuery)}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -816,11 +1140,11 @@ export default function CustomerHome() {
                           key={item.id} 
                           className="bg-white rounded-2xl border border-gray-150 p-4 hover:border-gray-300 hover:shadow-sm transition-all duration-300 flex flex-col justify-between gap-4"
                         >
-                          <div className="space-y-3">
+                          <div className="space-y-3 cursor-pointer group" onClick={() => setSelectedDetailItem(item)}>
                             <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 border border-gray-100 flex items-center justify-center">
                               {item.imageUrl ? (
                                 <img 
-                                  src={item.imageUrl} 
+                                  src={item.imageUrl.split(',')[0]} 
                                   alt={item.name} 
                                   className="w-full h-full object-cover"
                                 />
@@ -850,16 +1174,35 @@ export default function CustomerHome() {
                           <div className="space-y-3 pt-2 border-t border-slate-100">
                             <div className="flex items-center justify-between">
                               <div className="space-y-0.5">
-                                <div className="flex items-baseline gap-1.5">
-                                  <span className="font-mono font-black text-sm text-himgiri-primary">
-                                    ₹{item.mrp.toFixed(2)}
-                                  </span>
-                                  {item.price < item.mrp && (
-                                    <span className="font-mono text-[10px] text-gray-450 line-through">
-                                      ₹{item.price.toFixed(2)}
-                                    </span>
-                                  )}
-                                </div>
+                                {(() => {
+                                  const gstPercent = getGstPercentByName(item.categoryName);
+                                  const sellingPriceWithGst = item.price * (1 + gstPercent / 100);
+                                  const isDiscounted = sellingPriceWithGst < item.mrp - 0.05;
+                                  return (
+                                    <div className="flex flex-col gap-0.5">
+                                      <div className="flex items-baseline gap-1.5">
+                                        <span className="font-mono font-black text-sm text-himgiri-primary">
+                                          ₹{sellingPriceWithGst.toFixed(2)}
+                                        </span>
+                                        {isDiscounted && (
+                                          <span className="font-mono text-[10px] text-gray-450 line-through">
+                                            ₹{item.mrp.toFixed(2)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
+                                          Incl. GST
+                                        </span>
+                                        {isDiscounted && (
+                                          <span className="text-[9px] bg-green-50 text-green-700 font-bold px-1.5 py-0.5 rounded">
+                                            Save ₹{(item.mrp - sellingPriceWithGst).toFixed(2)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                                 
                                 {item.storageStatus === 'InStock' && item.stockQty <= 0 && (
                                   <span className="text-[9px] font-extrabold uppercase tracking-wider block text-red-500 font-black">
@@ -997,7 +1340,7 @@ export default function CustomerHome() {
                           <div className="flex items-center gap-2.5 min-w-0">
                             {item.imageUrl ? (
                               <img 
-                                src={item.imageUrl} 
+                                src={item.imageUrl.split(',')[0]} 
                                 alt={item.itemName} 
                                 className="w-8 h-8 rounded-lg object-cover border border-gray-100 flex-shrink-0 bg-white"
                               />
@@ -1129,16 +1472,30 @@ export default function CustomerHome() {
                   </h4>
 
                   <div className="space-y-3">
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Student Full Name"
-                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="relative">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="First Name *"
+                          className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="relative">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="Last Name *"
+                          className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1147,10 +1504,10 @@ export default function CustomerHome() {
                         <input
                           type="text"
                           required
-                          placeholder="Mobile (10 digits)"
+                          placeholder="Contact Number *"
                           className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
                           value={mobile}
-                          onChange={(e) => setMobile(e.target.value)}
+                          onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
                         />
                       </div>
 
@@ -1158,8 +1515,7 @@ export default function CustomerHome() {
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <input
                           type="email"
-                          required
-                          placeholder="Parent Email"
+                          placeholder="Parent Email (Optional)"
                           className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
@@ -1172,7 +1528,7 @@ export default function CustomerHome() {
                       <input
                         type="text"
                         required
-                        placeholder="Address Line 1"
+                        placeholder="Address Line 1 *"
                         className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
                         value={addressLine1}
                         onChange={(e) => setAddressLine1(e.target.value)}
@@ -1182,7 +1538,7 @@ export default function CustomerHome() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <input
                         type="text"
-                        placeholder="Address Line 2 (Opt)"
+                        placeholder="Address Line 2 (Optional)"
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all sm:col-span-1"
                         value={addressLine2}
                         onChange={(e) => setAddressLine2(e.target.value)}
@@ -1190,7 +1546,7 @@ export default function CustomerHome() {
                       <input
                         type="text"
                         required
-                        placeholder="City"
+                        placeholder="City *"
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
@@ -1198,12 +1554,81 @@ export default function CustomerHome() {
                       <input
                         type="text"
                         required
-                        placeholder="Pincode (6 Digits)"
+                        placeholder="Pincode (6 digits) *"
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
                         value={pincode}
-                        onChange={(e) => setPincode(e.target.value)}
+                        onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       />
                     </div>
+
+                    {/* Delivery Map Picker */}
+                    {includeDelivery && (
+                      <div className="pt-1">
+                        {!showMap ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowMap(true)}
+                            className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-98 border border-slate-200 shadow-sm"
+                          >
+                            <MapPin className="h-4 w-4 text-slate-600 animate-pulse" />
+                            <span>Select Delivery Location on Map</span>
+                          </button>
+                        ) : (
+                          <div className="space-y-3 p-3.5 bg-slate-50 border border-slate-150 rounded-2xl animate-in slide-in-from-top-2 duration-200">
+                            {/* Search form */}
+                            <form onSubmit={handleMapSearch} className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Search society, colony, or landmark..."
+                                className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-500 shadow-sm"
+                                value={mapSearchVal}
+                                onChange={(e) => setMapSearchVal(e.target.value)}
+                              />
+                              <button
+                                type="submit"
+                                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 shadow-sm"
+                              >
+                                Search
+                              </button>
+                            </form>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider">
+                                Or drag pin directly on map:
+                              </span>
+                              <div className="flex gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={handleDetectLocation}
+                                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-sm"
+                                >
+                                  Detect Me
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowMap(false);
+                                    setMapLocation(null);
+                                  }}
+                                  className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all active:scale-95"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <div id="delivery-map" className="w-full h-44 rounded-xl border border-slate-200 bg-white overflow-hidden shadow-inner relative z-10" />
+                            
+                            {mapLocation && (
+                              <div className="flex items-center justify-between text-[9px] text-slate-450 font-mono font-bold mt-1">
+                                <span>GPS: {mapLocation.lat}, {mapLocation.lng}</span>
+                                <span className="text-green-600 font-bold uppercase tracking-wider">📍 Pin Selected</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Price Summary */}
@@ -1252,6 +1677,219 @@ export default function CustomerHome() {
           </div>
         )}
       </main>
+
+      {/* Product Details Modal (Popup) */}
+      {selectedDetailItem && (() => {
+        const detailImages = selectedDetailItem.imageUrl 
+          ? selectedDetailItem.imageUrl.split(',').filter((u: string) => u.trim() !== '') 
+          : [];
+        const isItemInSelectedKit = !!(selectedKit && selectedKit.items.some((ki: any) => ki.itemId === selectedDetailItem.id));
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div 
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-250 cursor-pointer" 
+              onClick={() => setSelectedDetailItem(null)} 
+            />
+            
+            <div className="relative bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row border border-slate-100 animate-in zoom-in-95 duration-200">
+              {/* Close Button */}
+              <button 
+                onClick={() => setSelectedDetailItem(null)} 
+                className="absolute top-4 right-4 z-10 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full p-2.5 hover:rotate-90 transition-all focus:outline-none shadow-sm"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+
+              {/* Left Column: Image Gallery (Carousel) */}
+              <div className="w-full md:w-1/2 p-6 flex flex-col justify-center items-center border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50/40">
+                <div className="w-full flex flex-col justify-center items-center gap-4">
+                  {/* Large Main Display Image */}
+                  <div className="relative aspect-square w-full max-w-[280px] rounded-2xl overflow-hidden bg-white border border-slate-150 flex items-center justify-center shadow-soft">
+                    {detailImages.length > 0 ? (
+                      <img 
+                        src={detailImages[activeImageIndex]} 
+                        alt={selectedDetailItem.name} 
+                        className="w-full h-full object-contain p-3"
+                      />
+                    ) : (
+                      <BookOpen className="h-16 w-16 text-slate-300" />
+                    )}
+
+                    <span className="absolute top-3 left-3 text-[8px] font-black bg-slate-900/80 text-white px-2 py-0.5 rounded-md uppercase tracking-wider backdrop-blur-sm">
+                      {selectedDetailItem.categoryName}
+                    </span>
+                  </div>
+
+                  {/* Thumbnail Previews List */}
+                  {detailImages.length > 1 && (
+                    <div className="flex flex-wrap gap-2 justify-center max-h-16 overflow-y-auto py-1">
+                      {detailImages.map((url: string, index: number) => (
+                        <button
+                          key={index}
+                          onClick={() => setActiveImageIndex(index)}
+                          className={clsx(
+                            "w-12 h-12 rounded-xl border overflow-hidden bg-white p-1 hover:border-blue-500 transition-all focus:outline-none flex-shrink-0 flex items-center justify-center",
+                            activeImageIndex === index ? "border-blue-600 ring-4 ring-blue-500/10 shadow-sm" : "border-slate-200"
+                          )}
+                        >
+                          <img 
+                            src={url} 
+                            alt={`Thumbnail ${index + 1}`} 
+                            className="w-full h-full object-contain"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Information & Cart Actions */}
+              <div className="w-full md:w-1/2 p-6 flex flex-col justify-between max-h-[45vh] md:max-h-none overflow-y-auto">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 leading-tight">
+                      {selectedDetailItem.name}
+                    </h3>
+                    <p className="text-[9px] text-blue-600 font-extrabold uppercase mt-1.5 tracking-wider bg-blue-50 px-2 py-0.5 rounded-md inline-block">
+                      {selectedDetailItem.unit || 'Pieces (Pcs)'}
+                    </p>
+                  </div>
+
+                  {/* Pricing Details */}
+                  {(() => {
+                    const gstPercent = getGstPercentByName(selectedDetailItem.categoryName);
+                    const sellingPriceWithGst = selectedDetailItem.price * (1 + gstPercent / 100);
+                    const isDiscounted = sellingPriceWithGst < selectedDetailItem.mrp - 0.05;
+                    return (
+                      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2.5">
+                        <div className="flex justify-between items-baseline">
+                          <div>
+                            <span className="text-[10px] text-gray-450 block font-semibold mb-0.5">Selling Price (incl. GST)</span>
+                            <span className="font-mono font-black text-xl text-himgiri-primary">
+                              ₹{sellingPriceWithGst.toFixed(2)}
+                            </span>
+                          </div>
+                          
+                          {isDiscounted && (
+                            <div className="text-right">
+                              <span className="text-[10px] text-gray-450 block font-semibold mb-0.5">MRP</span>
+                              <span className="font-mono text-xs text-gray-400 block line-through">
+                                ₹{selectedDetailItem.mrp.toFixed(2)}
+                              </span>
+                              <span className="text-[10px] bg-green-50 text-green-700 font-bold px-1.5 py-0.5 rounded mt-1 inline-block">
+                                Save ₹{(selectedDetailItem.mrp - sellingPriceWithGst).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="border-t border-slate-200/50 pt-2 flex justify-between text-[10px] font-semibold text-slate-500">
+                          <span>Base Price: <strong className="font-mono text-slate-700">₹{selectedDetailItem.price.toFixed(2)}</strong></span>
+                          <span>GST ({gstPercent}%): <strong className="font-mono text-slate-700">₹{(sellingPriceWithGst - selectedDetailItem.price).toFixed(2)}</strong></span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Description */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Product Details</span>
+                    {selectedDetailItem.description ? (
+                      <p className="text-xs text-slate-600 leading-relaxed max-h-32 overflow-y-auto pr-1">
+                        {selectedDetailItem.description}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-450 italic">No detailed description provided for this item.</p>
+                    )}
+                  </div>
+
+                  {/* Availability / Stock Status */}
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-slate-400 font-black uppercase tracking-wider">Availability:</span>
+                    <div>
+                      {selectedDetailItem.storageStatus === 'InStock' ? (
+                        selectedDetailItem.stockQty > 0 ? (
+                          <span className="bg-green-50 text-green-700 font-bold px-2 py-0.5 rounded">
+                            In Stock
+                          </span>
+                        ) : (
+                          <span className="bg-red-50 text-red-700 font-bold px-2 py-0.5 rounded">
+                            Out of Stock
+                          </span>
+                        )
+                      ) : (
+                        <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded">
+                          Pre-order (Dispatched in 2-3 Days)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* School Kit Inclusion Banner */}
+                  {isItemInSelectedKit && (
+                    <div className="bg-blue-50/70 border border-blue-150 rounded-2xl p-3.5 flex items-start gap-2.5 text-[11px] text-blue-800 animate-in fade-in duration-200">
+                      <Sparkles className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="font-extrabold text-blue-900 block mb-0.5">Included in Selected Kit</span>
+                        This item is already included in your selected <span className="font-extrabold text-blue-900">{selectedKit?.name}</span>. You only need to add it here if you want to buy an <span className="font-bold underline">additional</span> copy.
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Cart Action Buttons */}
+                <div className="pt-6 border-t border-slate-100 mt-6 flex items-center justify-between gap-4">
+                  <div className="text-slate-400 font-black uppercase text-[10px] tracking-wider">
+                    Add to Cart
+                  </div>
+
+                  {(addOnQuantities[selectedDetailItem.id] || 0) > 0 ? (
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl p-1 shadow-inner">
+                        <button
+                          type="button"
+                          onClick={() => updateAddOnQty(selectedDetailItem.id, -1, selectedDetailItem)}
+                          className="h-8 w-8 rounded-lg bg-white shadow-sm hover:bg-gray-100 text-gray-700 active:scale-95 transition-all flex items-center justify-center font-black text-sm border border-gray-200"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-black text-slate-900 text-sm min-w-4 text-center">
+                          {addOnQuantities[selectedDetailItem.id]}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateAddOnQty(selectedDetailItem.id, 1, selectedDetailItem)}
+                          disabled={selectedDetailItem.storageStatus === 'InStock' && (addOnQuantities[selectedDetailItem.id] || 0) >= selectedDetailItem.stockQty}
+                          className="h-8 w-8 rounded-lg bg-white shadow-sm hover:bg-gray-100 text-gray-700 active:scale-95 transition-all flex items-center justify-center font-black text-sm border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          +
+                        </button>
+                      </div>
+                      {isItemInSelectedKit && (
+                        <span className="text-[10px] text-gray-400 font-bold mt-0.5">
+                          (1 in Kit + {addOnQuantities[selectedDetailItem.id]} extra)
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={selectedDetailItem.storageStatus === 'InStock' && selectedDetailItem.stockQty <= 0}
+                      onClick={() => updateAddOnQty(selectedDetailItem.id, 1, selectedDetailItem)}
+                      className="px-5 py-2.5 bg-himgiri-primary hover:bg-blue-700 text-white font-extrabold text-[11px] rounded-xl shadow-md shadow-blue-100 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {selectedDetailItem.storageStatus === 'InStock' && selectedDetailItem.stockQty <= 0 
+                        ? 'Sold Out' 
+                        : (isItemInSelectedKit ? 'Add Extra Copy' : 'Add To Cart')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

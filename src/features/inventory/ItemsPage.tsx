@@ -555,7 +555,7 @@ export default function ItemsPage() {
                         <div className="h-12 w-12 rounded-xl bg-gray-50 flex-shrink-0 overflow-hidden border border-gray-200 flex items-center justify-center">
                           {item.imageUrl ? (
                             <img 
-                              src={item.imageUrl} 
+                              src={item.imageUrl.split(',')[0]} 
                               alt={item.name} 
                               className={clsx("h-full w-full object-cover", activeTab === 'history' && "grayscale opacity-80")} 
                             />

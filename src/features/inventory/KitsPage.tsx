@@ -324,9 +324,20 @@ export default function KitsPage() {
                           <tbody className="divide-y divide-gray-100 font-medium text-gray-600">
                             {kit.items.map((item) => (
                               <tr key={item.itemId} className="hover:bg-slate-50/20 transition-colors">
-                                <td className="px-4 py-3 text-gray-900 font-bold flex items-center gap-2">
-                                  <BookOpen className="h-3.5 w-3.5 text-blue-500" />
-                                  {item.itemName}
+                                <td className="px-4 py-3 text-gray-900 font-bold flex items-center gap-2.5">
+                                  {item.imageUrl ? (
+                                    <img 
+                                      src={item.imageUrl.split(',')[0]} 
+                                      alt={item.itemName} 
+                                      className="w-6 h-6 rounded-md object-cover border border-gray-150 flex-shrink-0 bg-white"
+                                      onError={(e) => {
+                                        (e.target as HTMLElement).style.display = 'none';
+                                      }}
+                                    />
+                                  ) : (
+                                    <BookOpen className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                                  )}
+                                  <span>{item.itemName}</span>
                                 </td>
                                 <td className="px-4 py-3">
                                   <span className="text-[10px] bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded">
