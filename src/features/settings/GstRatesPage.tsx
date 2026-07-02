@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { masterDataService, GstRateDto } from '../../services/masterDataService';
+import { masterDataService } from '../../services/masterDataService';
 import DataTable from '../../components/shared/DataTable';
 import { AddButton } from '../../components/shared/ActionButtons';
 import ActionModal from '../../components/shared/ActionModal';
 import Badge from '../../components/shared/Badge';
 import toast from 'react-hot-toast';
 import GstRateModal from './components/GstRateModal';
-import { BaseRequest } from '../../types';
+import { BaseRequest, GstRateDto } from '../../types';
 
 export default function GstRatesPage() {
   const queryClient = useQueryClient();
@@ -34,6 +34,7 @@ export default function GstRatesPage() {
       queryClient.invalidateQueries({ queryKey: ['gstRatesAll'] });
       toast.success('GST Rate deleted successfully');
       setIsDeleteModalOpen(false);
+      setRateToDelete(null);
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || err.message || 'Failed to delete GST Rate. It might be assigned to a category or item.');
@@ -55,7 +56,7 @@ export default function GstRatesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-gray-900">GST Rates (Tax Master)</h2>
         <AddButton onClick={() => { setSelectedRate(undefined); setIsModalOpen(true); }}>Add GST Rate</AddButton>

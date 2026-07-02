@@ -47,7 +47,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed }: SidebarProps) 
     },
     { 
       label: 'Account', 
-      path: '/admin/orders', 
+      path: '/admin/accounts', 
       icon: Receipt,
       roles: ['SuperAdmin', 'OrderManager']
     },
@@ -55,6 +55,12 @@ export default function Sidebar({ isOpen, onClose, isCollapsed }: SidebarProps) 
       label: 'Report', 
       path: '/admin/reports', 
       icon: BarChart3,
+      roles: ['SuperAdmin']
+    },
+    { 
+      label: 'Settings', 
+      path: '/admin/settings', 
+      icon: Settings,
       roles: ['SuperAdmin']
     },
   ];

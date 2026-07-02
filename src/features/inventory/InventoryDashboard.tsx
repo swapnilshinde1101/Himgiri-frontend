@@ -12,7 +12,6 @@ export default function InventoryDashboard() {
     { id: 'kits', label: 'Kits', icon: Briefcase, path: '/admin/inventory/kits' },
     { id: 'grades', label: 'Grades', icon: School, path: '/admin/inventory/grades' },
     { id: 'categories', label: 'Categories', icon: Tags, path: '/admin/inventory/categories' },
-    { id: 'gst-rates', label: 'GST Rates', icon: Percent, path: '/admin/inventory/gst-rates' },
     { id: 'history', label: 'Stock History', icon: History, path: '/admin/inventory/history' },
   ];
 
