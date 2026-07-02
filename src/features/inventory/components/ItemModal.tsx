@@ -11,6 +11,7 @@ import Select from '../../../components/shared/forms/Select';
 import Button from '../../../components/shared/Button';
 import toast from 'react-hot-toast';
 import type { Item, CreateItemRequest } from '../../../types';
+import { useGradesDropdown, useCategoriesDropdown, useGstRatesDropdown } from '../../../hooks/useMasterData';
 
 interface Props {
   isOpen: boolean;
@@ -167,25 +168,10 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
   }, [watchIsActive, setValue]);
 
   // ── Master Data Queries ──
-  // We fetch a large pageSize (100) to ensure dropdowns are complete
-  const { data: grades, isLoading: loadingGrades } = useQuery({
-    queryKey: ['grades', 'dropdown'],
-    queryFn: () => masterDataService.getGrades({ pageNumber: 1, pageSize: 100 }).then(res => res.data),
-    enabled: isOpen
-  });
-
-  const { data: categories, isLoading: loadingCats } = useQuery({
-    queryKey: ['categories', 'dropdown'],
-    queryFn: () => masterDataService.getCategories({ pageNumber: 1, pageSize: 100 }).then(res => res.data),
-    enabled: isOpen
-  });
-
-  const { data: gstRatesRes } = useQuery({
-    queryKey: ['gstRatesAll'],
-    queryFn: () => masterDataService.getAllGstRates(),
-    enabled: isOpen
-  });
-  const gstRates = gstRatesRes?.data || [];
+  const { data: grades, isLoading: loadingGrades } = useGradesDropdown();
+  const { data: categories, isLoading: loadingCats } = useCategoriesDropdown();
+  const { data: gstRatesRes } = useGstRatesDropdown();
+  const gstRates = gstRatesRes || [];
 
   // ── Reset form when item changes ──
   useEffect(() => {

@@ -24,6 +24,7 @@ import Button from '../../components/shared/Button';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import type { SchoolKit, BaseRequest, Item } from '../../types';
+import { useGradesDropdown } from '../../hooks/useMasterData';
 
 export default function KitsPage() {
   const queryClient = useQueryClient();
@@ -66,10 +67,7 @@ export default function KitsPage() {
     queryFn: () => kitService.getKits(params),
   });
 
-  const { data: grades } = useQuery({
-    queryKey: ['grades', 'dropdown'],
-    queryFn: () => masterDataService.getGrades({ pageNumber: 1, pageSize: 100, isActive: true }).then(res => res.data),
-  });
+  const { data: grades } = useGradesDropdown();
 
   const { data: catalogItems } = useQuery({
     queryKey: ['items', 'dropdown'],

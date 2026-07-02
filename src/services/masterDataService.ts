@@ -1,45 +1,9 @@
 import api from './api';
 import type { ApiResponse, BaseRequest } from '../types';
+import { GradeDto, CategoryDto, GstRateDto } from '../types';
 
-export interface GradeDto {
-  id: string;
-  name: string;
-  shortName: string;
-  description: string;
-  isActive: boolean;
-  displayOrder: number;
-}
+export type { GradeDto, CategoryDto, GstRateDto };
 
-export interface CategoryDto {
-  id: string;
-  name: string;
-  description?: string;
-  isActive: boolean;
-  displayOrder: number;
-  parentCategoryId?: string;
-  parentCategoryName?: string;
-  hsnCode: string;
-  gstPercent: number;
-  cgstPercent: number;
-  sgstPercent: number;
-  isTaxable: boolean;
-  defaultGstRateId?: string;
-}
-
-export interface GstRateDto {
-  id: string;
-  name: string;
-  hsnCode: string;
-  description: string;
-  rate: number;
-  cgst: number;
-  sgst: number;
-  igst: number;
-  cess: number;
-  effectiveFrom: string;
-  effectiveTo?: string;
-  isActive: boolean;
-}
 
 export const masterDataService = {
   // Grades

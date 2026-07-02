@@ -25,6 +25,9 @@ import Badge from '../../components/shared/Badge';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import type { Item, BaseRequest } from '../../types';
+import { useGradesDropdown, useCategoriesDropdown } from '../../hooks/useMasterData';
+import { useDebounce } from '../../hooks/useDebounce';
+import EmptyState from '../../components/shared/EmptyState';
 
 // Strict dropdown reason mapping to system constants
 const REASONS = [
@@ -48,6 +51,11 @@ export default function StockPage() {
   });
 
   const [searchVal, setSearchVal] = useState('');
+  const debouncedSearchVal = useDebounce(searchVal, 400);
+
+  React.useEffect(() => {
+    setParams(p => ({ ...p, searchTerm: debouncedSearchVal, pageNumber: 1 }));
+  }, [debouncedSearchVal]);
   
   const navigate = useNavigate();
 
@@ -58,15 +66,8 @@ export default function StockPage() {
   const [selectedReason, setSelectedReason] = useState<string>('Manual Update');
 
   // ── Master Data Queries ──
-  const { data: grades } = useQuery({
-    queryKey: ['grades', 'dropdown'],
-    queryFn: () => masterDataService.getGrades({ pageNumber: 1, pageSize: 100 }).then(res => res.data),
-  });
-
-  const { data: categories } = useQuery({
-    queryKey: ['categories', 'dropdown'],
-    queryFn: () => masterDataService.getCategories({ pageNumber: 1, pageSize: 100 }).then(res => res.data),
-  });
+  const { data: grades } = useGradesDropdown();
+  const { data: categories } = useCategoriesDropdown();
 
   // ── Queries ──
   const { data, isLoading } = useQuery({
@@ -94,7 +95,6 @@ export default function StockPage() {
   // ── Handlers ──
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setParams(p => ({ ...p, searchTerm: searchVal, pageNumber: 1 }));
   };
 
   const handleFilterChange = (key: keyof BaseRequest, value: any) => {
@@ -271,13 +271,13 @@ export default function StockPage() {
                 ))
               ) : data?.data.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center">
-                    <div className="flex flex-col items-center">
-                      <div className="h-16 w-16 bg-gray-50 rounded-3xl flex items-center justify-center mb-4">
-                        <Database className="h-8 w-8 text-gray-200" />
-                      </div>
-                      <p className="text-gray-400 font-bold">No stock items found.</p>
-                    </div>
+                  <td colSpan={6} className="px-6 py-12">
+                    <EmptyState
+                      title="No stock items found"
+                      description="No products match your current filters or search terms."
+                      icon={Database}
+                      className="border-0 shadow-none bg-transparent"
+                    />
                   </td>
                 </tr>
               ) : (
