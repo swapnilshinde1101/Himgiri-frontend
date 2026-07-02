@@ -26,13 +26,21 @@ export interface Item {
   description: string;
   imageUrl?: string;
   price: number;
+  purchasePrice?: number;
+  mrp: number;
   categoryName: string;
   categoryId: string;
-  gradeName: string;
-  gradeId: string;
+  gradeNames: string;
+  gradeIds: string[];
   stockQty: number;
+  targetQty: number;
+  unit: string;
   storageStatus: StorageStatus;
   isActive: boolean;
+  isStockInitialized: boolean;
+  createdAt: string;
+  completedAt?: string;
+  gstRateId?: string | null;
 }
 
 export interface CreateItemRequest {
@@ -40,11 +48,33 @@ export interface CreateItemRequest {
   description: string;
   imageUrl?: string;
   price: number;
+  purchasePrice?: number;
+  mrp: number;
   categoryId: string;
-  gradeId: string;
+  gradeIds: string[];
   stockQty: number;
+  targetQty: number;
+  unit: string;
   storageStatus: StorageStatus;
   isActive: boolean;
+  isStockInitialized: boolean;
+  gstRateId?: string | null;
+}
+
+export interface CompletedStats {
+  totalCompletedCount: number;
+  totalPurchaseValue: number;
+  totalRetailValue: number;
+  mostCompletedCategory: string;
+}
+
+export interface DashboardStats {
+  totalItems: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  totalOrders: number;
+  revenueToday: number;
+  pendingOrders: number;
 }
 
 // ── Cart (frontend only) ──
@@ -117,6 +147,14 @@ export interface BaseRequest {
   searchTerm?: string;
   sortColumn?: string;
   sortDirection?: 'ASC' | 'DESC';
+  onlyInitializedStock?: boolean;
+  categoryId?: string;
+  gradeId?: string;
+  isActive?: boolean;
+  startDate?: string;
+  endDate?: string;
+  stockStatus?: string;
+  isCompleted?: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -133,3 +171,57 @@ export interface Meta {
   currentPage: number;
   totalRecords: number;
 }
+
+export interface StockLog {
+  id: string;
+  itemId: string;
+  itemName: string;
+  oldQty: number;
+  newQty: number;
+  changedBy: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface BulkInwardRequest {
+  items: BulkInwardItem[];
+  reason: string;
+}
+
+export interface BulkInwardItem {
+  itemId: string;
+  quantityToAdd: number;
+}
+
+// ── School Kits ──
+export interface SchoolKitItem {
+  itemId: string;
+  itemName: string;
+  price: number;
+  mrp: number;
+  quantity: number;
+  categoryName: string;
+  unit: string;
+  imageUrl?: string;
+  storageStatus: StorageStatus;
+}
+
+export interface SchoolKit {
+  id: string;
+  name: string;
+  description?: string;
+  gradeId: string;
+  gradeName: string;
+  isActive: boolean;
+  items: SchoolKitItem[];
+  createdAt: string;
+}
+
+export interface CreateSchoolKitRequest {
+  name: string;
+  description?: string;
+  gradeId: string;
+  isActive: boolean;
+  items: { itemId: string; quantity: number }[];
+}
+

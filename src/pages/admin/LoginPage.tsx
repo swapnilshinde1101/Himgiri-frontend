@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
+import { Eye, EyeOff } from 'lucide-react';
+import { clsx } from 'clsx';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import type { LoginRequest } from '../../types';
@@ -12,6 +14,7 @@ export default function AdminLoginPage() {
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -57,13 +60,36 @@ export default function AdminLoginPage() {
             })}
           />
 
-          <Input
-            label="Password"
-            type="password"
-            placeholder="••••••••"
-            error={errors.password?.message}
-            {...register('password', { required: 'Password is required' })}
-          />
+          <div className="w-full space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                className={clsx(
+                  "flex h-10 w-full rounded-md border border-gray-300 bg-white pl-3 pr-10 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                  errors.password && "border-red-500 focus:ring-red-500"
+                )}
+                {...register('password', { required: 'Password is required' })}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+            {errors.password && (
+              <p className="text-xs text-red-500">{errors.password.message}</p>
+            )}
+          </div>
 
           <Button
             type="submit"

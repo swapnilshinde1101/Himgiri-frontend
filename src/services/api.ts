@@ -23,18 +23,24 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // If the request explicitly requests to skip the global toast error, skip it
+    if ((error.config as any)?.skipGlobalToast) {
+      return Promise.reject(error);
+    }
+
     const status = error.response?.status;
     const message = error.response?.data?.message || 'Something went wrong';
 
     switch (status) {
       case 401:
         // Unauthorized — session expired or invalid
-        sessionStorage.removeItem('himgiri_token');
-        sessionStorage.removeItem('himgiri_user');
-        toast.error('Session expired. Please login again.');
-        setTimeout(() => {
-            window.location.href = '/admin/login';
-        }, 1500);
+        sessionStorage.removeItem('himgiri-auth-storage');
+        if (window.location.pathname.startsWith('/admin')) {
+          toast.error('Session expired. Please login again.');
+          setTimeout(() => {
+              window.location.href = '/admin/login';
+          }, 1500);
+        }
         break;
 
       case 403:
@@ -43,7 +49,10 @@ api.interceptors.response.use(
         break;
 
       case 400:
-        // Bad Request — validation or business logic error
+      case 404:
+      case 409:
+      case 422:
+        // Client-side and business logic errors
         toast.error(message);
         break;
 
@@ -55,11 +64,15 @@ api.interceptors.response.use(
       default:
         // Network or unknown error (Backend is disconnected)
         if (!error.response) {
-            toast.error('Server unreachable. Logging out for security.');
+            toast.error('Server unreachable.');
             sessionStorage.removeItem('himgiri-auth-storage');
-            setTimeout(() => {
-                window.location.href = '/admin/login';
-            }, 2000);
+            if (window.location.pathname.startsWith('/admin')) {
+              setTimeout(() => {
+                  window.location.href = '/admin/login';
+              }, 2000);
+            }
+        } else {
+            toast.error(message);
         }
         break;
     }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { masterDataService, CategoryDto } from '../../services/masterDataService';
 import DataTable from '../../components/shared/DataTable';
@@ -6,7 +6,7 @@ import { AddButton } from '../../components/shared/ActionButtons';
 import ActionModal from '../../components/shared/ActionModal';
 import Badge from '../../components/shared/Badge';
 import toast from 'react-hot-toast';
-import MasterDataModal from './components/MasterDataModal';
+import CategoryModal from './components/CategoryModal';
 import { BaseRequest } from '../../types';
 
 export default function CategoriesPage() {
@@ -71,7 +71,7 @@ export default function CategoriesPage() {
             header: 'GST Rates', 
             accessor: (c) => (
               <div className="flex flex-col gap-1">
-                <Badge variant={c.isTaxable ? 'info' : 'secondary'}>
+                <Badge variant={c.isTaxable ? 'info' : 'gray'}>
                   {c.isTaxable ? `GST ${c.gstPercent}%` : 'Exempt'}
                 </Badge>
                 {c.isTaxable && (
@@ -91,8 +91,7 @@ export default function CategoriesPage() {
         ]}
       />
 
-      <MasterDataModal
-        type="category"
+      <CategoryModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         data={selectedCat}

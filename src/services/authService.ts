@@ -1,9 +1,11 @@
 import api from './api';
-import type { LoginRequest, AuthUser, ApiResponse } from '../types';
+import type { LoginRequest, AuthUser, ApiResponse, AdminRole } from '../types';
 
 export const authService = {
   login: async (request: LoginRequest): Promise<AuthUser> => {
-    const { data } = await api.post<ApiResponse<AuthUser>>('/auth/login', request);
+    const { data } = await api.post<ApiResponse<AuthUser>>('/auth/login', request, {
+      skipGlobalToast: true
+    } as any);
     if (data.statusCode !== 200 || !data.data) throw new Error(data.message ?? 'Login failed');
     
     // Normalize role if it comes back as a number (SmartData Standard)
