@@ -25,6 +25,7 @@ import Badge from '../../components/shared/Badge';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import type { Item, BaseRequest } from '../../types';
+import { useGradesDropdown, useCategoriesDropdown } from '../../hooks/useMasterData';
 
 // Strict dropdown reason mapping to system constants
 const REASONS = [
@@ -58,15 +59,8 @@ export default function StockPage() {
   const [selectedReason, setSelectedReason] = useState<string>('Manual Update');
 
   // ── Master Data Queries ──
-  const { data: grades } = useQuery({
-    queryKey: ['grades', 'dropdown'],
-    queryFn: () => masterDataService.getGrades({ pageNumber: 1, pageSize: 100 }).then(res => res.data),
-  });
-
-  const { data: categories } = useQuery({
-    queryKey: ['categories', 'dropdown'],
-    queryFn: () => masterDataService.getCategories({ pageNumber: 1, pageSize: 100 }).then(res => res.data),
-  });
+  const { data: grades } = useGradesDropdown();
+  const { data: categories } = useCategoriesDropdown();
 
   // ── Queries ──
   const { data, isLoading } = useQuery({

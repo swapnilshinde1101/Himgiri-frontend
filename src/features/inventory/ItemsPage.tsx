@@ -13,6 +13,7 @@ import ItemModal from './components/ItemModal';
 import BulkInwardModal from './components/BulkInwardModal';
 import { CalendarDays, Search, Loader2, ChevronLeft, ChevronRight, History, TrendingUp, TrendingDown, CheckCircle2, Layers, DollarSign } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { useGradesDropdown, useCategoriesDropdown } from '../../hooks/useMasterData';
 
 export default function ItemsPage() {
   const queryClient = useQueryClient();
@@ -53,15 +54,8 @@ export default function ItemsPage() {
   });
 
   // ── Master Data Queries ──
-  const { data: grades } = useQuery({
-    queryKey: ['grades', 'dropdown'],
-    queryFn: () => masterDataService.getGrades({ pageNumber: 1, pageSize: 100 }).then(res => res.data),
-  });
-
-  const { data: categories } = useQuery({
-    queryKey: ['categories', 'dropdown'],
-    queryFn: () => masterDataService.getCategories({ pageNumber: 1, pageSize: 100 }).then(res => res.data),
-  });
+  const { data: grades } = useGradesDropdown();
+  const { data: categories } = useCategoriesDropdown();
 
   // ── Data Fetching ──
   const { data, isLoading } = useQuery({
