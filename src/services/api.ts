@@ -1,5 +1,6 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '../store/authStore';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'https://localhost:62313/api',
@@ -8,13 +9,10 @@ const api = axios.create({
 
 // Attach JWT token to every request automatically
 api.interceptors.request.use((config) => {
-  // Use a state selector if possible, or direct access from storage
-  const storage = sessionStorage.getItem('himgiri-auth-storage');
-  if (storage) {
-    const { state } = JSON.parse(storage);
-    if (state?.token) {
-        config.headers.Authorization = `Bearer ${state.token}`;
-    }
+  // Access store state directly (in-memory) instead of parsing storage on every request
+  const token = useAuthStore.getState().token;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
