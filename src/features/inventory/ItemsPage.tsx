@@ -14,6 +14,9 @@ import BulkInwardModal from './components/BulkInwardModal';
 import { CalendarDays, Search, Loader2, ChevronLeft, ChevronRight, History, TrendingUp, TrendingDown, CheckCircle2, Layers, DollarSign } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useGradesDropdown, useCategoriesDropdown } from '../../hooks/useMasterData';
+import { useDebounce } from '../../hooks/useDebounce';
+import LoadingSpinner from '../../components/shared/LoadingSpinner';
+import EmptyState from '../../components/shared/EmptyState';
 
 export default function ItemsPage() {
   const queryClient = useQueryClient();
@@ -28,6 +31,12 @@ export default function ItemsPage() {
   });
 
   const [searchVal, setSearchVal] = useState('');
+  const debouncedSearchVal = useDebounce(searchVal, 400);
+
+  React.useEffect(() => {
+    setParams(p => ({ ...p, searchTerm: debouncedSearchVal, pageNumber: 1 }));
+  }, [debouncedSearchVal]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | undefined>(undefined);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -117,7 +126,6 @@ export default function ItemsPage() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setParams(p => ({ ...p, searchTerm: searchVal, pageNumber: 1 }));
   };
 
   const handleFilterChange = (key: keyof BaseRequest, value: any) => {
@@ -489,21 +497,13 @@ export default function ItemsPage() {
 
       {/* Main Grouped List Content */}
       {isLoading ? (
-        <div className="bg-white rounded-3xl shadow-soft border border-gray-100 p-12 flex items-center justify-center min-h-[300px]">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 text-himgiri-primary animate-spin" />
-            <span className="text-sm font-bold text-gray-500">Loading catalog items...</span>
-          </div>
-        </div>
+        <LoadingSpinner size="lg" className="min-h-[300px] bg-white rounded-3xl shadow-soft border border-gray-100 p-12" />
       ) : currentPageItems.length === 0 ? (
-        <div className="bg-white rounded-3xl shadow-soft border border-gray-100 p-20 text-center">
-          <div className="flex flex-col items-center">
-            <div className="h-16 w-16 bg-gray-50 rounded-3xl flex items-center justify-center mb-4 border border-gray-100">
-              <Search className="h-8 w-8 text-gray-200" />
-            </div>
-            <p className="text-gray-400 font-bold">No catalog items found.</p>
-          </div>
-        </div>
+        <EmptyState
+          title="No catalog items found"
+          description="Try adjusting your search terms or filters to find what you are looking for."
+          icon={Search}
+        />
       ) : (
         <div className="space-y-6">
           {uniqueDates.map(dateStr => {
@@ -747,12 +747,7 @@ function HistoryPanel({ itemId }: { itemId: string }) {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8 gap-3">
-        <Loader2 className="h-5 w-5 text-himgiri-primary animate-spin" />
-        <span className="text-sm font-bold text-gray-500">Loading audit history...</span>
-      </div>
-    );
+    return <LoadingSpinner size="sm" className="py-8" />;
   }
 
   const logs = logsData?.data || [];
@@ -765,9 +760,12 @@ function HistoryPanel({ itemId }: { itemId: string }) {
       </h4>
 
       {logs.length === 0 ? (
-        <div className="text-center py-6 text-sm text-gray-400 font-medium bg-white rounded-2xl border border-gray-100">
-          No stock adjustment records available for this item.
-        </div>
+        <EmptyState
+          title="No audit logs available"
+          description="No stock adjustments have been recorded for this item yet."
+          icon={History}
+          className="border-gray-100 py-6"
+        />
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
           <table className="w-full text-left text-xs border-collapse">
