@@ -40,6 +40,7 @@ export interface Item {
   isStockInitialized: boolean;
   createdAt: string;
   completedAt?: string;
+  gstRateId?: string | null;
 }
 
 export interface CreateItemRequest {
@@ -57,6 +58,7 @@ export interface CreateItemRequest {
   storageStatus: StorageStatus;
   isActive: boolean;
   isStockInitialized: boolean;
+  gstRateId?: string | null;
 }
 
 export interface CompletedStats {

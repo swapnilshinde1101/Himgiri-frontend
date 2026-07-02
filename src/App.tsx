@@ -11,6 +11,7 @@ import InventoryDashboard from './features/inventory/InventoryDashboard';
 import StockPage from './features/inventory/StockPage';
 import GradesPage from './features/inventory/GradesPage';
 import CategoriesPage from './features/inventory/CategoriesPage';
+import GstRatesPage from './features/inventory/GstRatesPage';
 import StockHistoryPage from './features/inventory/StockHistoryPage';
 import KitsPage from './features/inventory/KitsPage';
 import CustomerHome from './pages/customer/CustomerHome';
@@ -237,6 +238,7 @@ export default function App() {
                 <Route path="kits" element={<KitsPage />} />
                 <Route path="grades" element={<GradesPage />} />
                 <Route path="categories" element={<CategoriesPage />} />
+                <Route path="gst-rates" element={<GstRatesPage />} />
                 <Route path="history" element={<StockHistoryPage />} />
               </Route>
               

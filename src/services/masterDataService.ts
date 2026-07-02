@@ -23,6 +23,22 @@ export interface CategoryDto {
   cgstPercent: number;
   sgstPercent: number;
   isTaxable: boolean;
+  defaultGstRateId?: string;
+}
+
+export interface GstRateDto {
+  id: string;
+  name: string;
+  hsnCode: string;
+  description: string;
+  rate: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  cess: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  isActive: boolean;
 }
 
 export const masterDataService = {
@@ -68,5 +84,27 @@ export const masterDataService = {
   getCategorySuggestions: async (term: string): Promise<ApiResponse<string[]>> => {
     const { data } = await api.get<ApiResponse<string[]>>('/categories/suggestions', { params: { term } });
     return data;
+  },
+
+  // GST Rates
+  getGstRates: async (request?: BaseRequest): Promise<ApiResponse<GstRateDto[]>> => {
+    const { data } = await api.get<ApiResponse<GstRateDto[]>>('/gstrates', { params: request });
+    return data;
+  },
+  getAllGstRates: async (): Promise<ApiResponse<GstRateDto[]>> => {
+    const { data } = await api.get<ApiResponse<GstRateDto[]>>('/gstrates/all');
+    return data;
+  },
+  createGstRate: async (rate: Partial<GstRateDto>): Promise<GstRateDto> => {
+    const { data } = await api.post<ApiResponse<GstRateDto>>('/gstrates', rate);
+    return data.data;
+  },
+  updateGstRate: async (id: string, rate: Partial<GstRateDto>): Promise<GstRateDto> => {
+    const { data } = await api.put<ApiResponse<GstRateDto>>(`/gstrates/${id}`, rate);
+    return data.data;
+  },
+  deleteGstRate: async (id: string): Promise<boolean> => {
+    const { data } = await api.delete<ApiResponse<boolean>>(`/gstrates/${id}`);
+    return data.data;
   },
 };

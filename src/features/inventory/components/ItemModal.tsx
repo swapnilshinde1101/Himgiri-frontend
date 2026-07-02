@@ -49,6 +49,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
     purchasePrice: z.preprocess((val) => val === '' ? null : val, z.coerce.number().min(0, 'Purchase Price cannot be negative').nullable().optional()),
     mrp: z.coerce.number().min(0.01, 'MRP must be greater than 0'),
     categoryId: z.string().min(1, 'Category is required'),
+    gstRateId: z.string().optional().nullable(),
     gradeIds: z.array(z.string()).min(1, 'At least one Grade is required'),
     stockQty: z.coerce.number().int('Stock must be an integer').min(0, 'Stock cannot be negative'),
     targetQty: z.coerce.number().int('Target quantity must be an integer').min(1, 'Target quantity must be at least 1'),
@@ -77,17 +78,25 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
     }
 
     // 3. Price + GST <= MRP check
-    const category = categories?.find(c => c.id === data.categoryId);
-    if (category) {
-      const gstPercent = category.isTaxable ? category.gstPercent : 0;
-      const sellingPriceWithGst = data.price * (1 + gstPercent / 100);
-      if (sellingPriceWithGst > data.mrp) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Price inclusive of GST (₹${sellingPriceWithGst.toFixed(2)}) cannot exceed MRP (₹${data.mrp.toFixed(2)})`,
-          path: ['price'],
-        });
+    let gstPercent = 0;
+    if (data.gstRateId) {
+      const selectedRate = gstRates.find(r => r.id === data.gstRateId);
+      if (selectedRate) {
+        gstPercent = selectedRate.rate;
       }
+    } else {
+      const category = categories?.find(c => c.id === data.categoryId);
+      if (category) {
+        gstPercent = category.isTaxable ? category.gstPercent : 0;
+      }
+    }
+    const sellingPriceWithGst = data.price * (1 + gstPercent / 100);
+    if (sellingPriceWithGst > data.mrp) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Price inclusive of GST (₹${sellingPriceWithGst.toFixed(2)}) cannot exceed MRP (₹${data.mrp.toFixed(2)})`,
+        path: ['price'],
+      });
     }
   });
 
@@ -110,7 +119,8 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
       unit: 'Pieces (Pcs)',
       customUnit: '',
       isActive: true,
-      isStockInitialized: false
+      isStockInitialized: false,
+      gstRateId: ''
     }
   });
 
@@ -120,6 +130,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
   const images = watchImageUrl ? watchImageUrl.split(',').filter((u: string) => u.trim() !== '') : [];
   const watchedMrp = watch('mrp');
   const watchedCategoryId = watch('categoryId');
+  const watchedGstRateId = watch('gstRateId');
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -169,6 +180,13 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
     enabled: isOpen
   });
 
+  const { data: gstRatesRes } = useQuery({
+    queryKey: ['gstRatesAll'],
+    queryFn: () => masterDataService.getAllGstRates(),
+    enabled: isOpen
+  });
+  const gstRates = gstRatesRes?.data || [];
+
   // ── Reset form when item changes ──
   useEffect(() => {
     if (isOpen) {
@@ -190,7 +208,8 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
           customUnit: isCustomUnit ? item.unit : '',
           storageStatus: item.storageStatus === 'PreOrder' ? 1 : 0,
           isActive: item.isActive ?? true,
-          isStockInitialized: item.isStockInitialized ?? false
+          isStockInitialized: item.isStockInitialized ?? false,
+          gstRateId: item.gstRateId || ''
         });
       } else {
         reset({
@@ -207,7 +226,8 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
           storageStatus: 0,
           gradeIds: [],
           isActive: true,
-          isStockInitialized: false
+          isStockInitialized: false,
+          gstRateId: ''
         });
       }
     }
@@ -233,7 +253,8 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
         unit: finalUnit,
         storageStatus: data.storageStatus === 1 ? 'PreOrder' : 'InStock',
         isActive: data.isActive,
-        isStockInitialized: data.isActive ? (data.isStockInitialized || Number(finalStockQty) > 0) : false
+        isStockInitialized: data.isActive ? (data.isStockInitialized || Number(finalStockQty) > 0) : false,
+        gstRateId: data.gstRateId || null
       };
 
       if (isEdit) {
@@ -368,6 +389,17 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
               {...register('categoryId')}
             />
 
+            {/* GST Rate Override Dropdown (Optional Override) */}
+            <Select
+              label="Override GST Rate (Optional)"
+              options={[
+                { label: 'Use Category Default', value: '' },
+                ...gstRates.map(r => ({ label: `${r.name} - HSN ${r.hsnCode} (${r.rate}%)`, value: r.id }))
+              ]}
+              error={errors.gstRateId?.message?.toString()}
+              {...register('gstRateId')}
+            />
+
             {/* Grade/Class selection (Multi-Select Checklist with Select All option) */}
             <div className="md:col-span-2">
               <div className="flex justify-between items-center mb-2">
@@ -447,8 +479,18 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
 
             {/* Pricing help calculator */}
             {watchedCategoryId && watchedMrp > 0 && (() => {
-              const cat = categories?.find(c => c.id === watchedCategoryId);
-              const gst = cat && cat.isTaxable ? cat.gstPercent : 0;
+              let gst = 0;
+              if (watchedGstRateId) {
+                const selectedRate = gstRates.find(r => r.id === watchedGstRateId);
+                if (selectedRate) {
+                  gst = selectedRate.rate;
+                }
+              } else {
+                const cat = categories?.find(c => c.id === watchedCategoryId);
+                if (cat) {
+                  gst = cat.isTaxable ? cat.gstPercent : 0;
+                }
+              }
               const recommendedBase = (watchedMrp / (1 + gst / 100)).toFixed(2);
               return (
                 <div className="md:col-span-2 text-[10px] text-blue-600 bg-blue-50/70 border border-blue-100 rounded-xl p-2.5 flex items-center justify-between font-bold animate-in fade-in duration-200">

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { masterDataService, CategoryDto } from '../../../services/masterDataService';
 import Input from '../../../components/shared/forms/Input';
@@ -17,11 +17,7 @@ const categorySchema = z.object({
   description: z.string().max(255).optional().default(''),
   isActive: z.boolean().default(true),
   displayOrder: z.coerce.number().min(0),
-  hsnCode: z.string().min(1, 'HSN Code is required').max(20),
-  gstPercent: z.preprocess((val) => val === '' ? 0 : val, z.coerce.number().refine(val => [0, 5, 12, 18, 28].includes(val), {
-    message: 'GST rate must be a standard rate (0, 5, 12, 18, or 28%)'
-  })),
-  isTaxable: z.boolean().default(true)
+  defaultGstRateId: z.string().min(1, 'Default GST Rate is required')
 });
 
 type CategoryFormData = z.infer<typeof categorySchema>;
@@ -36,24 +32,29 @@ export default function CategoryModal({ isOpen, onClose, data }: Props) {
   const queryClient = useQueryClient();
   const isEdit = !!data;
 
+  // Fetch all GstRates from master database
+  const { data: gstRatesRes } = useQuery({
+    queryKey: ['gstRatesAll'],
+    queryFn: () => masterDataService.getAllGstRates(),
+    enabled: isOpen
+  });
+
+  const gstRates = gstRatesRes?.data || [];
+
   const {
     register,
     handleSubmit,
     reset,
-    watch,
     formState: { errors },
   } = useForm<any>({
     resolver: zodResolver(categorySchema),
     defaultValues: {
       displayOrder: 0,
-      gstPercent: 0,
       isActive: true,
-      isTaxable: true,
-      description: ''
+      description: '',
+      defaultGstRateId: ''
     }
   });
-
-  const isTaxable = watch('isTaxable');
 
   useEffect(() => {
     if (isOpen) {
@@ -63,9 +64,7 @@ export default function CategoryModal({ isOpen, onClose, data }: Props) {
           description: data.description || '',
           isActive: data.isActive,
           displayOrder: data.displayOrder,
-          hsnCode: data.hsnCode,
-          gstPercent: data.gstPercent,
-          isTaxable: data.isTaxable
+          defaultGstRateId: data.defaultGstRateId || ''
         });
       } else {
         reset({
@@ -73,9 +72,7 @@ export default function CategoryModal({ isOpen, onClose, data }: Props) {
           description: '',
           isActive: true,
           displayOrder: 0,
-          hsnCode: '',
-          gstPercent: 0,
-          isTaxable: true
+          defaultGstRateId: ''
         });
       }
     }
@@ -118,39 +115,31 @@ export default function CategoryModal({ isOpen, onClose, data }: Props) {
             </div>
             
             <Input label="Display Order" type="number" error={errors.displayOrder?.message?.toString()} {...register('displayOrder')} />
-            <Input label="HSN Code *" error={errors.hsnCode?.message?.toString()} {...register('hsnCode')} />
             
-            <div className="flex items-center gap-2 pt-2">
+            <div className="md:col-span-2">
+              <Select
+                label="Default GST Rate *"
+                error={errors.defaultGstRateId?.message?.toString()}
+                {...register('defaultGstRateId')}
+                options={[
+                  { value: '', label: 'Select GST Rate...' },
+                  ...gstRates.map(r => ({
+                    value: r.id,
+                    label: `${r.name} - HSN ${r.hsnCode} (${r.rate}%)`
+                  }))
+                ]}
+              />
+            </div>
+            
+            <div className="flex items-center gap-2 pt-2 col-span-2">
                <input type="checkbox" id="isActive" {...register('isActive')} className="w-4 h-4 text-himgiri-primary rounded" />
                <label htmlFor="isActive" className="text-sm font-medium text-gray-700">Is Active?</label>
             </div>
-
-            <div className="flex items-center gap-2 pt-2">
-               <input type="checkbox" id="isTaxable" {...register('isTaxable')} className="w-4 h-4 text-himgiri-primary rounded" />
-               <label htmlFor="isTaxable" className="text-sm font-medium text-gray-700">Is Taxable?</label>
-            </div>
-
-            {isTaxable && (
-              <div className="md:col-span-2">
-                <Select
-                  label="GST Rate (%)"
-                  error={errors.gstPercent?.message?.toString()}
-                  {...register('gstPercent')}
-                  options={[
-                    { value: '0', label: '0% (Exempt)' },
-                    { value: '5', label: '5%' },
-                    { value: '12', label: '12%' },
-                    { value: '18', label: '18%' },
-                    { value: '28', label: '28%' }
-                  ]}
-                />
-              </div>
-            )}
           </div>
 
           <div className="pt-4 flex justify-end gap-3 border-t">
-            <Button variant="ghost" onClick={onClose} type="button">Cancel</Button>
-            <Button type="submit" isLoading={mutation.isPending}>Save Category</Button>
+             <Button variant="ghost" onClick={onClose} type="button">Cancel</Button>
+             <Button type="submit" isLoading={mutation.isPending}>Save Category</Button>
           </div>
         </form>
       </div>
