@@ -9,6 +9,8 @@ export interface CreateOrderRequest {
   addressLine2: string;
   city: string;
   pincode: string;
+  customerStateId: string;
+  customerGstin?: string | null;
   gradeId: string | null;
   items: { itemId: string; quantity: number }[];
   includeDelivery: boolean;

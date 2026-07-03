@@ -340,6 +340,26 @@ export default function CustomerHome() {
   const [addressLine2, setAddressLine2] = useState('');
   const [city, setCity] = useState('Pune');
   const [pincode, setPincode] = useState('411057');
+  const [customerStateId, setCustomerStateId] = useState('');
+
+  // Fetch states master data
+  const { data: statesResponse } = useQuery({
+    queryKey: ['states'],
+    queryFn: () => masterDataService.getStates(),
+  });
+  const states = statesResponse?.data || [];
+
+  // Set default state to Maharashtra (27 / MH)
+  useEffect(() => {
+    if (states.length > 0 && !customerStateId) {
+      const mh = states.find(s => s.stateCode === 'MH' || s.gstStateCode === '27');
+      if (mh) {
+        setCustomerStateId(mh.id);
+      } else {
+        setCustomerStateId(states[0].id);
+      }
+    }
+  }, [states, customerStateId]);
 
   // Checkout states
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -571,6 +591,11 @@ export default function CustomerHome() {
       return;
     }
 
+    if (!customerStateId) {
+      toast.error('Please select your state.');
+      return;
+    }
+
     setIsPlacingOrder(true);
     try {
       const finalAddressLine2 = mapLocation 
@@ -587,6 +612,8 @@ export default function CustomerHome() {
         addressLine2: finalAddressLine2,
         city: city,
         pincode: pincode,
+        customerStateId: customerStateId,
+        customerGstin: null,
         gradeId: selectedGradeId || null,
         items: cartItems.map(item => ({
           itemId: item.itemId,
@@ -1535,11 +1562,11 @@ export default function CustomerHome() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input
                         type="text"
                         placeholder="Address Line 2 (Optional)"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all sm:col-span-1"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
                         value={addressLine2}
                         onChange={(e) => setAddressLine2(e.target.value)}
                       />
@@ -1551,6 +1578,24 @@ export default function CustomerHome() {
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                       />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <select
+                          required
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all cursor-pointer"
+                          value={customerStateId}
+                          onChange={(e) => setCustomerStateId(e.target.value)}
+                        >
+                          <option value="" disabled>Select State *</option>
+                          {states.map(state => (
+                            <option key={state.id} value={state.id}>
+                              {state.stateName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                       <input
                         type="text"
                         required

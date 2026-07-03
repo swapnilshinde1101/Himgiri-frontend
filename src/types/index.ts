@@ -266,4 +266,13 @@ export interface GstRateDto {
   isActive: boolean;
 }
 
+export interface StateDto {
+  id: string;
+  stateCode: string;
+  stateName: string;
+  gstStateCode: string;
+  isUnionTerritory: boolean;
+  isActive: boolean;
+}
+
 

@@ -1,8 +1,8 @@
 import api from './api';
 import type { ApiResponse, BaseRequest } from '../types';
-import { GradeDto, CategoryDto, GstRateDto } from '../types';
+import { GradeDto, CategoryDto, GstRateDto, StateDto } from '../types';
 
-export type { GradeDto, CategoryDto, GstRateDto };
+export type { GradeDto, CategoryDto, GstRateDto, StateDto };
 
 
 export const masterDataService = {
@@ -70,5 +70,11 @@ export const masterDataService = {
   deleteGstRate: async (id: string): Promise<boolean> => {
     const { data } = await api.delete<ApiResponse<boolean>>(`/gstrates/${id}`);
     return data.data;
+  },
+
+  // States
+  getStates: async (): Promise<ApiResponse<StateDto[]>> => {
+    const { data } = await api.get<ApiResponse<StateDto[]>>('/states');
+    return data;
   },
 };
