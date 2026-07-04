@@ -30,7 +30,7 @@ export default function AdminLayout() {
             <Outlet />
           </div>
           
-          <Footer />
+          {/* <Footer /> */}
         </main>
       </div>
     </div>
