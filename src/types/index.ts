@@ -99,7 +99,7 @@ export interface CreateOrderRequest {
   city: string;
   pincode: string;
   grade: number;
-  items: { itemId: string; quantity: number }[];
+  items: { itemId: string; quantity: number; isKitItem: boolean }[];
 }
 
 export interface OrderSummary {

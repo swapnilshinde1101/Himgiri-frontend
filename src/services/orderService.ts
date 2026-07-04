@@ -12,7 +12,7 @@ export interface CreateOrderRequest {
   customerStateId: string;
   customerGstin?: string | null;
   gradeId: string | null;
-  items: { itemId: string; quantity: number }[];
+  items: { itemId: string; quantity: number; isKitItem: boolean }[];
   includeDelivery: boolean;
 }
 

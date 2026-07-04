@@ -617,7 +617,8 @@ export default function CustomerHome() {
         gradeId: selectedGradeId || null,
         items: cartItems.map(item => ({
           itemId: item.itemId,
-          quantity: item.quantity
+          quantity: item.quantity,
+          isKitItem: item.isKitItem
         })),
         includeDelivery: includeDelivery
       };
