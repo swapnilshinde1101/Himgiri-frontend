@@ -333,7 +333,7 @@ export default function EntitySettingsPage(): JSX.Element {
         </div>
 
         {/* SECTION 2: Billing Mappings & Sequences */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           {/* Card: Invoice Prefix */}
           <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 space-y-4">
@@ -418,27 +418,88 @@ export default function EntitySettingsPage(): JSX.Element {
               Printed directly onto transaction invoices for parent inquiries.
             </p>
           </div>
+        </div>
 
-          {/* Card: Default Low Stock Threshold */}
-          <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-himgiri-primary" />
-              <span className="text-sm font-bold text-gray-800">Default Low Stock Alert</span>
+        {/* SECTION 3: Inventory Alert Thresholds */}
+        <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-8 space-y-6">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Inventory Alert Thresholds</h2>
+              <p className="text-xs text-gray-500 mt-1">Configure default safety stock buffers and status triggers</p>
             </div>
-            <input
-              type="number"
-              value={defaultLowStockThreshold}
-              onChange={e => setDefaultLowStockThreshold(Math.max(1, Number(e.target.value)))}
-              min={1}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-center font-bold text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-himgiri-primary/20 focus:border-himgiri-primary transition-all"
-              placeholder="10"
-              required
-            />
-            <p className="text-xs text-gray-400 text-center leading-relaxed">
-              Default stock level below which items show "Low Stock" alert badges.
-            </p>
+            <div className="px-3 py-1 bg-amber-50 border border-amber-100 rounded-xl text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5 animate-pulse">
+              <Sparkles className="h-3 w-3" />
+              Dynamic State Engine
+            </div>
           </div>
 
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* Control Column */}
+            <div className="space-y-4">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
+                Default Safety Stock Alert Level
+              </label>
+              <input
+                type="number"
+                value={defaultLowStockThreshold}
+                onChange={e => setDefaultLowStockThreshold(Math.max(1, Number(e.target.value)))}
+                min={1}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 font-bold text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-himgiri-primary/20 focus:border-himgiri-primary transition-all duration-300 bg-white"
+                placeholder="10"
+                required
+              />
+              <p className="text-xs text-gray-400 leading-relaxed">
+                The global baseline stock quantity below which catalog items will trigger reorder alerts.
+              </p>
+            </div>
+
+            {/* Visual Legends Column */}
+            <div className="lg:col-span-2 space-y-4 bg-gray-50/50 border border-gray-100 rounded-2xl p-5">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Alert State Triggers</span>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                
+                {/* Out of Stock Card */}
+                <div className="bg-white border border-gray-150 rounded-xl p-4 flex flex-col justify-between shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm shadow-red-200 animate-pulse"></span>
+                    <span className="text-xs font-bold text-gray-900">Out of Stock</span>
+                  </div>
+                  <div className="mt-3">
+                    <span className="text-[10px] text-gray-400 font-bold block mb-1">Trigger Condition</span>
+                    <span className="text-xs font-mono font-bold text-red-600 bg-red-50 px-2 py-1 rounded">Stock = 0</span>
+                  </div>
+                </div>
+
+                {/* Low Stock Card */}
+                <div className="bg-white border border-gray-150 rounded-xl p-4 flex flex-col justify-between shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-200 animate-pulse"></span>
+                    <span className="text-xs font-bold text-gray-900">Low Stock</span>
+                  </div>
+                  <div className="mt-3">
+                    <span className="text-[10px] text-gray-400 font-bold block mb-1">Trigger Condition</span>
+                    <span className="text-xs font-mono font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded">Stock ≤ {defaultLowStockThreshold}</span>
+                  </div>
+                </div>
+
+                {/* In Stock Card */}
+                <div className="bg-white border border-gray-150 rounded-xl p-4 flex flex-col justify-between shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200 animate-pulse"></span>
+                    <span className="text-xs font-bold text-gray-900">In Stock</span>
+                  </div>
+                  <div className="mt-3">
+                    <span className="text-[10px] text-gray-400 font-bold block mb-1">Trigger Condition</span>
+                    <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">Stock &gt; {defaultLowStockThreshold}</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
         </div>
 
         {/* Submit Actions */}
