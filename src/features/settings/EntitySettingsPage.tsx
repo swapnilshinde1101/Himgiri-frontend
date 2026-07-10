@@ -20,6 +20,7 @@ interface VendorSettingsDto {
   lastInvoiceNumber: number;
   stateId: string | null;
   stateName: string | null;
+  defaultLowStockThreshold: number;
 }
 
 export default function EntitySettingsPage(): JSX.Element {
@@ -34,6 +35,7 @@ export default function EntitySettingsPage(): JSX.Element {
   const [contactPhone, setContactPhone] = useState('');
   const [invoicePrefix, setInvoicePrefix] = useState('HG');
   const [stateId, setStateId] = useState('');
+  const [defaultLowStockThreshold, setDefaultLowStockThreshold] = useState(10);
 
   // Fetch settings & states
   const { data: settingsData, isLoading: isLoadingSettings, isError: isErrorSettings } = useQuery({
@@ -61,6 +63,7 @@ export default function EntitySettingsPage(): JSX.Element {
       setContactEmail(settingsData.contactEmail || '');
       setInvoicePrefix(settingsData.invoicePrefix || 'HG');
       setStateId(settingsData.stateId || '');
+      setDefaultLowStockThreshold(settingsData.defaultLowStockThreshold ?? 10);
 
       // Parse phone number into country code + 10 digits
       const phoneRaw = settingsData.contactPhone || '';
@@ -145,7 +148,8 @@ export default function EntitySettingsPage(): JSX.Element {
       contactEmail: contactEmail.trim(),
       contactPhone: fullPhone,
       invoicePrefix: invoicePrefix.trim(),
-      stateId: stateId || null
+      stateId: stateId || null,
+      defaultLowStockThreshold: Number(defaultLowStockThreshold)
     });
   };
 
@@ -329,7 +333,7 @@ export default function EntitySettingsPage(): JSX.Element {
         </div>
 
         {/* SECTION 2: Billing Mappings & Sequences */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           
           {/* Card: Invoice Prefix */}
           <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 space-y-4">
@@ -412,6 +416,26 @@ export default function EntitySettingsPage(): JSX.Element {
             )}
             <p className="text-xs text-gray-400 text-center leading-relaxed">
               Printed directly onto transaction invoices for parent inquiries.
+            </p>
+          </div>
+
+          {/* Card: Default Low Stock Threshold */}
+          <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-himgiri-primary" />
+              <span className="text-sm font-bold text-gray-800">Default Low Stock Alert</span>
+            </div>
+            <input
+              type="number"
+              value={defaultLowStockThreshold}
+              onChange={e => setDefaultLowStockThreshold(Math.max(1, Number(e.target.value)))}
+              min={1}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-center font-bold text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-himgiri-primary/20 focus:border-himgiri-primary transition-all"
+              placeholder="10"
+              required
+            />
+            <p className="text-xs text-gray-400 text-center leading-relaxed">
+              Default stock level below which items show "Low Stock" alert badges.
             </p>
           </div>
 

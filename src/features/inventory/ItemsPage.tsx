@@ -594,7 +594,7 @@ export default function ItemsPage() {
                             <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest block mb-1">Inventory</span>
                             <div className="text-xs font-semibold text-gray-600 space-y-0.5">
                               <div>Target: <span className="font-bold text-gray-900">{item.targetQty}</span></div>
-                              <div>In-Stock: <span className={`font-bold ${item.stockQty <= 5 ? 'text-red-600' : 'text-green-600'}`}>{item.stockQty}</span></div>
+                              <div>In-Stock: <span className={`font-bold ${item.stockQty <= (item.resolvedThreshold ?? 10) ? 'text-red-600' : 'text-green-600'}`}>{item.stockQty}</span></div>
                               {item.targetQty - item.stockQty > 0 ? (
                                 <div className="flex items-center gap-1">
                                   <span>Pending:</span>

@@ -59,6 +59,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
     storageStatus: z.coerce.number(),
     isActive: z.boolean().default(true),
     isStockInitialized: z.boolean().default(false),
+    lowStockThreshold: z.preprocess((val) => val === '' ? null : val, z.coerce.number().int('Threshold must be an integer').min(0, 'Threshold cannot be negative').nullable().optional()),
   }).superRefine((data, ctx) => {
     // 1. Price <= MRP check
     if (data.price > data.mrp) {
@@ -114,6 +115,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
       storageStatus: 0,
       stockQty: 0,
       targetQty: 1,
+      lowStockThreshold: '',
       price: 0,
       purchasePrice: null,
       mrp: 0,
@@ -195,7 +197,8 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
           storageStatus: item.storageStatus === 'PreOrder' ? 1 : 0,
           isActive: item.isActive ?? true,
           isStockInitialized: item.isStockInitialized ?? false,
-          gstRateId: item.gstRateId || ''
+          gstRateId: item.gstRateId || '',
+          lowStockThreshold: item.lowStockThreshold !== undefined && item.lowStockThreshold !== null ? item.lowStockThreshold : ''
         });
       } else {
         reset({
@@ -213,7 +216,8 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
           gradeIds: [],
           isActive: true,
           isStockInitialized: false,
-          gstRateId: ''
+          gstRateId: '',
+          lowStockThreshold: ''
         });
       }
     }
@@ -240,7 +244,8 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
         storageStatus: data.storageStatus === 1 ? 'PreOrder' : 'InStock',
         isActive: data.isActive,
         isStockInitialized: data.isActive ? (data.isStockInitialized || Number(finalStockQty) > 0) : false,
-        gstRateId: data.gstRateId || null
+        gstRateId: data.gstRateId || null,
+        lowStockThreshold: data.lowStockThreshold !== undefined && data.lowStockThreshold !== '' && data.lowStockThreshold !== null ? Number(data.lowStockThreshold) : null
       };
 
       if (isEdit) {
@@ -533,6 +538,14 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
               placeholder="1"
               error={errors.targetQty?.message?.toString()}
               {...register('targetQty')}
+            />
+
+            <Input
+              label="Low Stock Alert Threshold (Override)"
+              type="number"
+              placeholder="Leave blank to use default settings"
+              error={errors.lowStockThreshold?.message?.toString()}
+              {...register('lowStockThreshold')}
             />
 
             {isEdit && (

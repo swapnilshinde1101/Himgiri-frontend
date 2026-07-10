@@ -140,9 +140,9 @@ export default function StockPage() {
   };
 
   // Helper to get status indicators
-  const getStockStatus = (qty: number) => {
+  const getStockStatus = (qty: number, threshold = 10) => {
     if (qty === 0) return { label: 'Out of Stock', variant: 'danger' as const, bg: 'bg-red-50/40 hover:bg-red-50/80 border-l-4 border-red-500' };
-    if (qty < 10) return { label: 'Low Stock', variant: 'warning' as const, bg: 'bg-amber-50/40 hover:bg-amber-50/80 border-l-4 border-amber-500' };
+    if (qty <= threshold) return { label: 'Low Stock', variant: 'warning' as const, bg: 'bg-amber-50/40 hover:bg-amber-50/80 border-l-4 border-amber-500' };
     return { label: 'In Stock', variant: 'success' as const, bg: 'border-l-4 border-transparent hover:bg-gray-50/40' };
   };
 
@@ -282,7 +282,8 @@ export default function StockPage() {
                 </tr>
               ) : (
                 data?.data.map((item) => {
-                  const status = getStockStatus(item.stockQty);
+                  const threshold = item.resolvedThreshold ?? 10;
+                  const status = getStockStatus(item.stockQty, threshold);
                   return (
                     <tr 
                       key={item.id}
@@ -317,8 +318,8 @@ export default function StockPage() {
                         <span className={clsx(
                           "text-lg font-black font-mono",
                           item.stockQty === 0 && "text-himgiri-danger",
-                          item.stockQty > 0 && item.stockQty < 10 && "text-himgiri-warning",
-                          item.stockQty >= 10 && "text-himgiri-success"
+                          item.stockQty > 0 && item.stockQty <= threshold && "text-himgiri-warning",
+                          item.stockQty > threshold && "text-himgiri-success"
                         )}>
                           {item.stockQty}
                         </span>
@@ -327,8 +328,8 @@ export default function StockPage() {
                         <Badge variant={status.variant}>
                           <div className="flex items-center gap-1">
                             {item.stockQty === 0 && <XCircle className="h-3 w-3" />}
-                            {item.stockQty > 0 && item.stockQty < 10 && <AlertTriangle className="h-3 w-3" />}
-                            {item.stockQty >= 10 && <CheckCircle2 className="h-3 w-3" />}
+                            {item.stockQty > 0 && item.stockQty <= threshold && <AlertTriangle className="h-3 w-3" />}
+                            {item.stockQty > threshold && <CheckCircle2 className="h-3 w-3" />}
                             {status.label}
                           </div>
                         </Badge>

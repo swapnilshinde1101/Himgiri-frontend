@@ -41,6 +41,8 @@ export interface Item {
   createdAt: string;
   completedAt?: string;
   gstRateId?: string | null;
+  lowStockThreshold?: number | null;
+  resolvedThreshold?: number;
 }
 
 export interface CreateItemRequest {
@@ -59,6 +61,7 @@ export interface CreateItemRequest {
   isActive: boolean;
   isStockInitialized: boolean;
   gstRateId?: string | null;
+  lowStockThreshold?: number | null;
 }
 
 export interface CompletedStats {
