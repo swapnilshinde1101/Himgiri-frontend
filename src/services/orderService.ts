@@ -67,8 +67,13 @@ export const orderService = {
     return data;
   },
 
-  downloadInvoice: async (id: string, invoiceNumber: string): Promise<void> => {
+  downloadInvoice: async (id: string, invoiceNumber: string, mobile?: string, pincode?: string): Promise<void> => {
+    const params = new URLSearchParams();
+    if (mobile) params.append('mobile', mobile);
+    if (pincode) params.append('pincode', pincode);
+
     const response = await api.get(`/orders/${id}/invoice`, {
+      params,
       responseType: 'blob'
     });
     const blob = new Blob([response.data], { type: 'application/pdf' });

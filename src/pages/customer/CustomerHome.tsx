@@ -699,7 +699,7 @@ export default function CustomerHome() {
     if (!createdOrder) return;
     setIsDownloadingInvoice(true);
     try {
-      await orderService.downloadInvoice(createdOrder.id, createdOrder.invoiceNumber);
+      await orderService.downloadInvoice(createdOrder.id, createdOrder.invoiceNumber, createdOrder.mobile, createdOrder.pincode);
       toast.success('Invoice PDF downloaded successfully!');
     } catch (err: any) {
       let errorMsg = 'Failed to download invoice.';
@@ -884,7 +884,7 @@ export default function CustomerHome() {
   const handleDownloadLookupInvoice = async (orderId: string, invoiceNumber: string) => {
     toast.loading('Downloading invoice...', { id: 'lookup-download' });
     try {
-      await orderService.downloadInvoice(orderId, invoiceNumber);
+      await orderService.downloadInvoice(orderId, invoiceNumber, lookupMobile, lookupPincode);
       toast.success('Invoice PDF downloaded successfully!', { id: 'lookup-download' });
     } catch (err: any) {
       let errorMsg = 'Failed to download invoice.';
