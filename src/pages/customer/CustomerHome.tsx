@@ -258,10 +258,10 @@ export default function CustomerHome() {
             }
             toast.error(msg, { id: 'geo-locating' });
           },
-          { enableHighAccuracy: false, timeout: 6000 }
+          { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
         );
       },
-      { enableHighAccuracy: true, timeout: 3000 }
+      { enableHighAccuracy: true, timeout: 3000, maximumAge: 0 }
     );
   };
 
