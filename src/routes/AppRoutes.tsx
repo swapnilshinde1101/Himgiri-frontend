@@ -5,6 +5,8 @@ import AdminLayout from '../components/layout/AdminLayout';
 import AdminLoginPage from '../pages/admin/LoginPage';
 import CustomerHome from '../pages/customer/CustomerHome';
 import DashboardPage from '../pages/admin/DashboardPage';
+import AdminOrdersPage from '../pages/admin/orders/OrdersPage';
+import AdminOrderDetailPage from '../pages/admin/orders/OrderDetailPage';
 
 // Accounts features
 import AccountsDashboard from '../features/accounts/AccountsDashboard';
@@ -76,7 +78,8 @@ export default function AppRoutes() {
           }
         >
           <Route index element={<Navigate to="orders" replace />} />
-          <Route path="orders" element={<OrdersPage />} />
+          <Route path="orders" element={<AdminOrdersPage />} />
+          <Route path="orders/:id" element={<AdminOrderDetailPage />} />
           <Route path="invoices" element={<InvoicesPage />} />
           <Route path="vendors" element={<VendorsPage />} />
         </Route>

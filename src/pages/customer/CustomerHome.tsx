@@ -27,6 +27,7 @@ import {
   X
 } from 'lucide-react';
 import Button from '../../components/shared/Button';
+import Badge from '../../components/shared/Badge';
 import toast from 'react-hot-toast';
 import { 
   validateIndianMobile, 
@@ -61,7 +62,7 @@ export default function CustomerHome() {
   
   // Add-on item quantities: itemId -> quantity
   const [addOnQuantities, setAddOnQuantities] = useState<Record<string, number>>({});
-  const [includeDelivery, setIncludeDelivery] = useState<boolean>(true);
+  const [isHomeDelivery, setIsHomeDelivery] = useState<boolean>(true);
   const [selectedDetailItem, setSelectedDetailItem] = useState<any | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState<number>(0);
 
@@ -74,24 +75,6 @@ export default function CustomerHome() {
   const [mapSearchVal, setMapSearchVal] = useState('');
   const mapInstanceRef = React.useRef<any>(null);
   const markerInstanceRef = React.useRef<any>(null);
-
-  // Load Leaflet Script and Stylesheet dynamically
-  useEffect(() => {
-    if (!showMap) return;
-    if (document.getElementById('leaflet-css')) return;
-
-    const link = document.createElement('link');
-    link.id = 'leaflet-css';
-    link.rel = 'stylesheet';
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    document.head.appendChild(link);
-
-    const script = document.createElement('script');
-    script.id = 'leaflet-js';
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.async = true;
-    document.body.appendChild(script);
-  }, [showMap]);
 
   // Auto detect location when map picker is shown
   useEffect(() => {
@@ -111,57 +94,65 @@ export default function CustomerHome() {
       return;
     }
 
-    const timer = setInterval(() => {
-      if (!(window as any).L) return; // Wait for Leaflet to be fully loaded
-      clearInterval(timer);
+    const defaultLat = mapLocation ? mapLocation.lat : 18.5204;
+    const defaultLng = mapLocation ? mapLocation.lng : 73.8567;
 
-      const defaultLat = mapLocation ? mapLocation.lat : 18.5204;
-      const defaultLng = mapLocation ? mapLocation.lng : 73.8567;
+    const mapContainer = document.getElementById('delivery-map');
+    if (!mapContainer || mapInstanceRef.current) return;
 
-      const mapContainer = document.getElementById('delivery-map');
-      if (!mapContainer || mapInstanceRef.current) return;
+    const L = (window as any).L;
+    if (!L) return;
 
-      const L = (window as any).L;
-      const map = L.map('delivery-map').setView([defaultLat, defaultLng], 14);
-      mapInstanceRef.current = map;
+    const map = L.map('delivery-map').setView([defaultLat, defaultLng], 14);
+    mapInstanceRef.current = map;
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-      // Custom red SVG marker with pulse radar ring
-      const redMarkerIcon = L.divIcon({
-        className: 'custom-div-icon',
-        html: `<div class="relative flex items-center justify-center">
-                 <div class="w-8 h-8 rounded-full bg-blue-500/25 absolute animate-ping" style="animation-duration: 2s;" />
-                 <svg class="w-8 h-8 text-red-500 filter drop-shadow relative z-10" fill="currentColor" viewBox="0 0 24 24">
-                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                 </svg>
-               </div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 32]
-      });
-
-      const marker = L.marker([defaultLat, defaultLng], { draggable: true, icon: redMarkerIcon }).addTo(map);
-      markerInstanceRef.current = marker;
-
-      map.on('click', (e: any) => {
-        const { lat, lng } = e.latlng;
-        marker.setLatLng([lat, lng]);
-        setMapLocation({ lat: parseFloat(lat.toFixed(6)), lng: parseFloat(lng.toFixed(6)) });
-      });
-
-      marker.on('dragend', () => {
-        const position = marker.getLatLng();
-        setMapLocation({ lat: parseFloat(position.lat.toFixed(6)), lng: parseFloat(position.lng.toFixed(6)) });
-      });
-
-      if (!mapLocation) {
-        setMapLocation({ lat: defaultLat, lng: defaultLng });
-      }
+    // Fix grey map tiles by invalidating size after render
+    setTimeout(() => {
+      map.invalidateSize();
     }, 200);
 
-    return () => clearInterval(timer);
+    // Custom red SVG marker with pulse radar ring
+    const redMarkerIcon = L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div class="relative flex items-center justify-center">
+               <div class="w-8 h-8 rounded-full bg-blue-500/25 absolute animate-ping" style="animation-duration: 2s;" />
+               <svg class="w-8 h-8 text-red-500 filter drop-shadow relative z-10" fill="currentColor" viewBox="0 0 24 24">
+                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+               </svg>
+             </div>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 32]
+    });
+
+    const marker = L.marker([defaultLat, defaultLng], { draggable: true, icon: redMarkerIcon }).addTo(map);
+    markerInstanceRef.current = marker;
+
+    map.on('click', (e: any) => {
+      const { lat, lng } = e.latlng;
+      marker.setLatLng([lat, lng]);
+      setMapLocation({ lat: parseFloat(lat.toFixed(6)), lng: parseFloat(lng.toFixed(6)) });
+    });
+
+    marker.on('dragend', () => {
+      const position = marker.getLatLng();
+      setMapLocation({ lat: parseFloat(position.lat.toFixed(6)), lng: parseFloat(position.lng.toFixed(6)) });
+    });
+
+    if (!mapLocation) {
+      setMapLocation({ lat: defaultLat, lng: defaultLng });
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerInstanceRef.current = null;
+      }
+    };
   }, [showMap]);
 
   // Reverse Geocoding to auto-fill address details with 800ms debounce
@@ -178,27 +169,38 @@ export default function CustomerHome() {
         const data = await res.json();
         if (data && data.address) {
           const addr = data.address;
+          let autofilled = false;
           
-          // Auto-fill City
-          const detectedCity = addr.city || addr.town || addr.village || addr.suburb || 'Pune';
-          setCity(detectedCity);
+          // Auto-fill City if empty
+          if (!city.trim()) {
+            const detectedCity = addr.city || addr.town || addr.village || addr.suburb || 'Pune';
+            setCity(detectedCity);
+            autofilled = true;
+          }
 
-          // Auto-fill Pincode
-          if (addr.postcode) {
+          // Auto-fill Pincode if empty
+          if (!pincode.trim() && addr.postcode) {
             setPincode(addr.postcode.replace(/\s/g, ''));
+            autofilled = true;
           }
 
-          // Auto-fill Address Line 1
-          const road = addr.road || addr.suburb || addr.neighbourhood || '';
-          const suburb = addr.suburb || addr.county || '';
-          let line1 = `${road}${road && suburb ? ', ' : ''}${suburb}`;
-          if (data.display_name && !line1) {
-            line1 = data.display_name.split(',').slice(0, 2).join(', ');
+          // Auto-fill Address Line 1 if empty
+          if (!addressLine1.trim()) {
+            const road = addr.road || addr.suburb || addr.neighbourhood || '';
+            const suburb = addr.suburb || addr.county || '';
+            let line1 = `${road}${road && suburb ? ', ' : ''}${suburb}`;
+            if (data.display_name && !line1) {
+              line1 = data.display_name.split(',').slice(0, 2).join(', ');
+            }
+            if (line1) {
+              setAddressLine1(line1);
+              autofilled = true;
+            }
           }
-          if (line1) {
-            setAddressLine1(line1);
+          
+          if (autofilled) {
+            toast.success('Address auto-filled from map pin!', { id: 'reverse-geo' });
           }
-          toast.success('Address auto-filled from map pin!', { id: 'reverse-geo' });
         }
       } catch (err) {
         // Ignore lookup errors
@@ -217,23 +219,49 @@ export default function CustomerHome() {
       return;
     }
     toast.loading('Detecting your location...', { id: 'geo-locating' });
+
+    // Try high accuracy (GPS) first with a short timeout
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
         const lat = parseFloat(latitude.toFixed(6));
         const lng = parseFloat(longitude.toFixed(6));
         setMapLocation({ lat, lng });
-        toast.success('Location detected successfully!', { id: 'geo-locating' });
+        toast.success('Location detected with high accuracy!', { id: 'geo-locating' });
 
         if (mapInstanceRef.current && markerInstanceRef.current) {
           mapInstanceRef.current.setView([lat, lng], 16);
           markerInstanceRef.current.setLatLng([lat, lng]);
         }
       },
-      () => {
-        toast.error('Could not retrieve your location. Please select it manually on the map.', { id: 'geo-locating' });
+      (highAccError) => {
+        // Fallback to low accuracy (Wi-Fi/IP) if GPS fails or times out (e.g. on desktops)
+        navigator.geolocation.getCurrentPosition(
+          (fallbackPosition) => {
+            const { latitude, longitude } = fallbackPosition.coords;
+            const lat = parseFloat(latitude.toFixed(6));
+            const lng = parseFloat(longitude.toFixed(6));
+            setMapLocation({ lat, lng });
+            toast.success('Location detected (approximate)!', { id: 'geo-locating' });
+
+            if (mapInstanceRef.current && markerInstanceRef.current) {
+              mapInstanceRef.current.setView([lat, lng], 16);
+              markerInstanceRef.current.setLatLng([lat, lng]);
+            }
+          },
+          (fallbackError) => {
+            let msg = 'Could not retrieve your location. Please select it manually on the map.';
+            if (fallbackError.code === fallbackError.PERMISSION_DENIED) {
+              msg = 'Location access blocked. Please enable location permissions in your browser settings.';
+            } else if (fallbackError.code === fallbackError.TIMEOUT) {
+              msg = 'Location detection timed out. Please search or select manually.';
+            }
+            toast.error(msg, { id: 'geo-locating' });
+          },
+          { enableHighAccuracy: false, timeout: 6000 }
+        );
       },
-      { enableHighAccuracy: true, timeout: 5000 }
+      { enableHighAccuracy: true, timeout: 3000 }
     );
   };
 
@@ -365,8 +393,17 @@ export default function CustomerHome() {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<any>(null);
   const [showSimulator, setShowSimulator] = useState(false);
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
   const [simulatorStatus, setSimulatorStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
   const [simulatorMessage, setSimulatorMessage] = useState('');
+
+  // Lookup & Tracking states
+  const [showLookupPanel, setShowLookupPanel] = useState(false);
+  const [lookupMobile, setLookupMobile] = useState('');
+  const [lookupPincode, setLookupPincode] = useState('');
+  const [lookupResults, setLookupResults] = useState<any[]>([]);
+  const [isSearchingLookup, setIsSearchingLookup] = useState(false);
 
   // ── Queries ──
   const { data: kitsRes, isLoading: kitsLoading } = useQuery({
@@ -452,12 +489,7 @@ export default function CustomerHome() {
     }
   }, [catalogRes]);
 
-  // ── Safety Rule: Force Home Delivery if Grade is Null (General Shop) ──
-  useEffect(() => {
-    if (selectedGradeId === null) {
-      setIncludeDelivery(true);
-    }
-  }, [selectedGradeId]);
+
 
   // ── Handlers ──
   const handleGradeSelect = (gradeId: string | null) => {
@@ -534,16 +566,35 @@ export default function CustomerHome() {
     return cat && cat.isTaxable ? cat.gstPercent : 0;
   };
 
-  const itemsSubtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const itemsGst = cartItems.reduce((sum, item) => {
+  const getInclusivePrice = (price: number, categoryName: string) => {
+    const gstPercent = getGstPercentByName(categoryName);
+    return price * (1 + gstPercent / 100);
+  };
+
+  const itemsTotal = cartItems.reduce((sum, item) => {
+    return sum + (getInclusivePrice(item.price, item.categoryName) * item.quantity);
+  }, 0);
+
+  const deliveryBase = 0;
+  const deliveryGst = 0;
+  const grandTotal = itemsTotal;
+
+  const selectedState = states.find(s => s.id === customerStateId);
+  const selectedStateName = selectedState ? selectedState.stateName : '';
+  const isIntraState = !selectedStateName || selectedStateName.toLowerCase().includes('maharashtra');
+
+  const subTotal = cartItems.reduce((sum, item) => {
+    return sum + (item.price * item.quantity);
+  }, 0);
+
+  const totalGst = cartItems.reduce((sum, item) => {
     const gstPercent = getGstPercentByName(item.categoryName);
     return sum + (item.price * item.quantity * (gstPercent / 100));
   }, 0);
-  const itemsTotal = itemsSubtotal + itemsGst;
 
-  const deliveryBase = includeDelivery ? 211.86 : 0;
-  const deliveryGst = includeDelivery ? 38.14 : 0;
-  const grandTotal = itemsTotal + deliveryBase + deliveryGst;
+  const cgstAmount = isIntraState ? (totalGst / 2) : 0;
+  const sgstAmount = isIntraState ? (totalGst / 2) : 0;
+  const igstAmount = isIntraState ? 0 : totalGst;
 
   // Filter catalog items for display in the Add-on catalog grid
   const displayCatalogItems = catalogItems.filter(item => {
@@ -553,7 +604,8 @@ export default function CustomerHome() {
   });
 
   // ── Place Order ──
-  const handlePlaceOrder = async (e: React.FormEvent) => {
+  // ── Place Order ──
+  const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
     if (cartItems.length === 0) {
       toast.error('Your cart is empty. Please add items to buy.');
@@ -572,8 +624,12 @@ export default function CustomerHome() {
       toast.error('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
       return;
     }
-    if (email.trim() && !validateEmail(email)) {
-      toast.error('Please enter a valid parent email address.');
+    if (!email.trim()) {
+      toast.error('Email address is required.');
+      return;
+    }
+    if (!validateEmail(email)) {
+      toast.error('Please enter a valid email address.');
       return;
     }
     if (!validateRequired(addressLine1)) {
@@ -585,18 +641,17 @@ export default function CustomerHome() {
       return;
     }
 
-    if (includeDelivery && !mapLocation) {
-      toast.error('Please select your delivery location on the map to help us deliver your order.');
-      setShowMap(true);
-      return;
-    }
-
     if (!customerStateId) {
       toast.error('Please select your state.');
       return;
     }
 
+    setShowCheckoutModal(true);
+  };
+
+  const executeOrderPlacement = async () => {
     setIsPlacingOrder(true);
+    setShowCheckoutModal(false);
     try {
       const finalAddressLine2 = mapLocation 
         ? `${addressLine2} (Map: https://maps.google.com/?q=${mapLocation.lat},${mapLocation.lng})`.trim()
@@ -620,7 +675,7 @@ export default function CustomerHome() {
           quantity: item.quantity,
           isKitItem: item.isKitItem
         })),
-        includeDelivery: includeDelivery
+        isHomeDelivery: isHomeDelivery
       };
 
       const res = await orderService.createOrder(orderReq);
@@ -637,6 +692,218 @@ export default function CustomerHome() {
       // Handled by global response interceptor
     } finally {
       setIsPlacingOrder(false);
+    }
+  };
+
+  const handleDownloadInvoice = async () => {
+    if (!createdOrder) return;
+    setIsDownloadingInvoice(true);
+    try {
+      await orderService.downloadInvoice(createdOrder.id, createdOrder.invoiceNumber);
+      toast.success('Invoice PDF downloaded successfully!');
+    } catch (err: any) {
+      let errorMsg = 'Failed to download invoice.';
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const errorJson = JSON.parse(text);
+          errorMsg = errorJson.message || errorMsg;
+        } catch {
+          // Keep default fallback
+        }
+      } else if (err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      
+      // Map 503/GSTIN missing messages
+      if (err.response?.status === 503 || errorMsg.toLowerCase().includes('gstin')) {
+        errorMsg = 'Invoice not available — GSTIN configuration pending';
+      }
+      
+      toast.error(errorMsg);
+    } finally {
+      setIsDownloadingInvoice(false);
+    }
+  };
+
+  const handlePrintOrderSlip = () => {
+    if (!createdOrder) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to print the order slip.');
+      return;
+    }
+
+    const itemsHtml = cartItems.map(item => `
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 8px; text-align: left;">${item.itemName}</td>
+        <td style="padding: 8px; text-align: center;">${item.isKitItem ? 'Kit' : 'Extra'}</td>
+        <td style="padding: 8px; text-align: center;">${item.quantity}</td>
+        <td style="padding: 8px; text-align: right;">₹${item.price.toFixed(2)}</td>
+        <td style="padding: 8px; text-align: right;">₹${(item.price * item.quantity).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    const invoiceNo = createdOrder.invoiceNumber;
+    const dateStr = new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const isHome = isHomeDelivery;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Order Slip - ${invoiceNo}</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #333; line-height: 1.4; }
+            .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #0056b3; padding-bottom: 15px; }
+            .title { font-size: 22px; font-weight: bold; color: #0056b3; margin: 0; }
+            .subtitle { font-size: 11px; font-weight: bold; color: #777; margin: 5px 0 0 0; text-transform: uppercase; letter-spacing: 1px; }
+            .grid { display: grid; grid-template-cols: 1fr 1fr; gap: 20px; margin-bottom: 25px; font-size: 13px; }
+            .section-title { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #888; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 8px; }
+            .value { font-weight: bold; color: #111; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 13px; }
+            th { background: #f5f5f5; padding: 10px 8px; font-weight: bold; border-bottom: 2px solid #ddd; text-transform: uppercase; font-size: 11px; color: #555; }
+            .totals { float: right; width: 280px; font-size: 13px; }
+            .total-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+            .total-row.grand { font-size: 16px; font-weight: bold; color: #0056b3; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px; }
+            .footer { text-align: center; margin-top: 50px; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 15px; }
+            @media print {
+              body { padding: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">Himgiri Goods Portal</div>
+            <div class="subtitle">DPS Hinjawadi — Order Handover Slip</div>
+          </div>
+          
+          <div class="grid">
+            <div>
+              <div class="section-title">Order Details</div>
+              <div>Invoice No: <span class="value">${invoiceNo}</span></div>
+              <div>Date & Time: <span class="value">${dateStr}</span></div>
+              <div>Payment Status: <span class="value" style="color: green;">SUCCESS (PAID)</span></div>
+            </div>
+            <div>
+              <div class="section-title">Delivery Details</div>
+              <div>Customer Name: <span class="value">${firstName} ${lastName}</span></div>
+              <div>Contact: <span class="value">${mobile}</span></div>
+              <div>Method: <span class="value" style="color: #0056b3;">${isHome ? '🏠 Home Delivery' : '🏫 Classroom Handover'}</span></div>
+              <div>Address: <span class="value">${addressLine1} ${addressLine2 ? ', ' + addressLine2 : ''}</span></div>
+              <div>Location: <span class="value">${city} - ${pincode} (${selectedStateName})</span></div>
+            </div>
+          </div>
+
+          <div class="section-title">Ordered Items</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: left;">Item Name</th>
+                <th style="text-align: center; width: 60px;">Type</th>
+                <th style="text-align: center; width: 50px;">Qty</th>
+                <th style="text-align: right; width: 90px;">Base Price</th>
+                <th style="text-align: right; width: 100px;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="total-row">
+              <span>Subtotal (Excl. GST)</span>
+              <span>₹${subTotal.toFixed(2)}</span>
+            </div>
+            <div class="total-row">
+              <span>GST (Taxes)</span>
+              <span>₹${totalGst.toFixed(2)}</span>
+            </div>
+            <div class="total-row">
+              <span>Delivery Charge</span>
+              <span style="color: green; font-weight: bold;">FREE</span>
+            </div>
+            <div class="total-row grand">
+              <span>Grand Total</span>
+              <span>₹${grandTotal.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div style="clear: both;"></div>
+
+          <div class="footer">
+            Thank you for purchasing with Himgiri Goods Portal. Please show this receipt at the classroom/school counter if required.
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleLookupSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lookupMobile.trim() || !lookupPincode.trim()) {
+      toast.error('Please enter both mobile and pincode.');
+      return;
+    }
+    setIsSearchingLookup(true);
+    try {
+      const res = await orderService.lookupOrders(lookupMobile.trim(), lookupPincode.trim());
+      if (res.statusCode === 200 && res.data) {
+        setLookupResults(res.data);
+      } else {
+        toast.error(res.message || 'No orders found.');
+        setLookupResults([]);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'No orders found with provided details.');
+      setLookupResults([]);
+    } finally {
+      setIsSearchingLookup(false);
+    }
+  };
+
+  const handleDownloadLookupInvoice = async (orderId: string, invoiceNumber: string) => {
+    toast.loading('Downloading invoice...', { id: 'lookup-download' });
+    try {
+      await orderService.downloadInvoice(orderId, invoiceNumber);
+      toast.success('Invoice PDF downloaded successfully!', { id: 'lookup-download' });
+    } catch (err: any) {
+      let errorMsg = 'Failed to download invoice.';
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const errorJson = JSON.parse(text);
+          errorMsg = errorJson.message || errorMsg;
+        } catch {
+          // Keep default
+        }
+      } else if (err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      }
+      
+      if (err.response?.status === 503 || errorMsg.toLowerCase().includes('gstin')) {
+        errorMsg = 'Invoice not available — GSTIN configuration pending';
+      }
+      toast.error(errorMsg, { id: 'lookup-download' });
     }
   };
 
@@ -716,6 +983,14 @@ export default function CustomerHome() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <button 
+              type="button"
+              onClick={() => setShowLookupPanel(true)}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95 border border-slate-200"
+            >
+              <Search className="h-3.5 w-3.5 text-slate-500" />
+              <span>Track My Order</span>
+            </button>
             <span className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full uppercase tracking-wider">
               Parent Portal
             </span>
@@ -800,16 +1075,50 @@ export default function CustomerHome() {
                   </div>
                   <div className="space-y-2">
                     <h3 className="text-2xl font-black text-gray-900">Order Confirmed!</h3>
+                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
+                      Invoice No: {createdOrder?.invoiceNumber}
+                    </p>
                     <p className="text-sm font-medium text-gray-500 max-w-md mx-auto">
                       {simulatorMessage}
                     </p>
                   </div>
-                  <div className="pt-4 max-w-sm mx-auto">
+
+                  {/* Action Buttons to print slip & download invoice */}
+                  <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
+                    <button
+                      type="button"
+                      onClick={handlePrintOrderSlip}
+                      className="px-4 py-3 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm"
+                    >
+                      <ShoppingBag className="h-4 w-4 text-slate-500" />
+                      <span>Print Order Slip</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDownloadingInvoice}
+                      onClick={handleDownloadInvoice}
+                      className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-95 shadow-md shadow-blue-500/10"
+                    >
+                      {isDownloadingInvoice ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Downloading Invoice...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="h-4 w-4" />
+                          <span>Download Invoice</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="pt-4 max-w-md mx-auto border-t border-slate-100 mt-6">
                     <Button
                       onClick={resetCheckout}
                       className="w-full rounded-2xl bg-slate-900 text-white hover:bg-slate-800"
                     >
-                      Back to Mode Selection
+                      Done (Back to Home)
                     </Button>
                   </div>
                 </div>
@@ -1047,7 +1356,7 @@ export default function CustomerHome() {
                             
                             <div className="text-right">
                               <span className="font-mono font-black text-sm text-gray-800">
-                                ₹{(item.mrp * item.quantity).toFixed(2)}
+                                ₹{(getInclusivePrice(item.price, item.categoryName) * item.quantity).toFixed(2)}
                               </span>
                               <span className="text-[9px] text-gray-450 font-semibold block leading-none">
                                 (Incl. GST)
@@ -1203,30 +1512,18 @@ export default function CustomerHome() {
                             <div className="flex items-center justify-between">
                               <div className="space-y-0.5">
                                 {(() => {
-                                  const gstPercent = getGstPercentByName(item.categoryName);
-                                  const sellingPriceWithGst = item.price * (1 + gstPercent / 100);
-                                  const isDiscounted = sellingPriceWithGst < item.mrp - 0.05;
+                                  const sellingPriceWithGst = getInclusivePrice(item.price, item.categoryName);
                                   return (
                                     <div className="flex flex-col gap-0.5">
                                       <div className="flex items-baseline gap-1.5">
                                         <span className="font-mono font-black text-sm text-himgiri-primary">
                                           ₹{sellingPriceWithGst.toFixed(2)}
                                         </span>
-                                        {isDiscounted && (
-                                          <span className="font-mono text-[10px] text-gray-450 line-through">
-                                            ₹{item.mrp.toFixed(2)}
-                                          </span>
-                                        )}
                                       </div>
                                       <div className="flex items-center gap-1.5">
                                         <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
                                           Incl. GST
                                         </span>
-                                        {isDiscounted && (
-                                          <span className="text-[9px] bg-green-50 text-green-700 font-bold px-1.5 py-0.5 rounded">
-                                            Save ₹{(item.mrp - sellingPriceWithGst).toFixed(2)}
-                                          </span>
-                                        )}
                                       </div>
                                     </div>
                                   );
@@ -1441,49 +1738,40 @@ export default function CustomerHome() {
                     Delivery Method Selection
                   </h4>
                   
-                  {selectedGradeId === null && (
-                    <div className="p-3 bg-amber-50 border border-amber-200/60 rounded-2xl text-[10px] font-semibold text-amber-800 flex items-start gap-2">
-                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                      <span>Classroom Delivery requires grade class selection. Forced Home Delivery is selected.</span>
-                    </div>
-                  )}
-                  
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
-                      onClick={() => setIncludeDelivery(true)}
+                      onClick={() => setIsHomeDelivery(true)}
                       className={clsx(
                         "p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all select-none",
-                        includeDelivery 
+                        isHomeDelivery 
                           ? "border-himgiri-primary bg-himgiri-primary/[0.03] ring-2 ring-himgiri-primary/10" 
                           : "border-gray-200 hover:bg-gray-50/50"
                       )}
                     >
                       <div className="flex items-center justify-between w-full">
-                        <Truck className={clsx("h-5 w-5", includeDelivery ? "text-himgiri-primary" : "text-gray-400")} />
-                        {includeDelivery && <div className="h-4 w-4 bg-himgiri-primary rounded-full flex items-center justify-center text-white"><Check className="h-2.5 w-2.5" /></div>}
+                        <Truck className={clsx("h-5 w-5", isHomeDelivery ? "text-himgiri-primary" : "text-gray-400")} />
+                        {isHomeDelivery && <div className="h-4 w-4 bg-himgiri-primary rounded-full flex items-center justify-center text-white"><Check className="h-2.5 w-2.5" /></div>}
                       </div>
                       <div>
                         <span className="font-bold text-xs text-gray-950 block">Home Delivery</span>
-                        <span className="text-[10px] text-gray-400 font-semibold">₹250 flat charges</span>
+                        <span className="text-[10px] text-gray-400 font-semibold">Free Delivery</span>
                       </div>
                     </button>
 
                     <button
                       type="button"
-                      disabled={selectedGradeId === null}
-                      onClick={() => setIncludeDelivery(false)}
+                      onClick={() => setIsHomeDelivery(false)}
                       className={clsx(
                         "p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all select-none",
-                        !includeDelivery 
+                        !isHomeDelivery 
                           ? "border-himgiri-primary bg-himgiri-primary/[0.03] ring-2 ring-himgiri-primary/10" 
-                          : "border-gray-200 hover:bg-gray-50/50",
-                        selectedGradeId === null && "opacity-45 cursor-not-allowed bg-slate-50 border-gray-200"
+                          : "border-gray-200 hover:bg-gray-50/50"
                       )}
                     >
                       <div className="flex items-center justify-between w-full">
-                        <School className={clsx("h-5 w-5", !includeDelivery ? "text-himgiri-primary" : "text-gray-400")} />
-                        {!includeDelivery && <div className="h-4 w-4 bg-himgiri-primary rounded-full flex items-center justify-center text-white"><Check className="h-2.5 w-2.5" /></div>}
+                        <School className={clsx("h-5 w-5", !isHomeDelivery ? "text-himgiri-primary" : "text-gray-400")} />
+                        {!isHomeDelivery && <div className="h-4 w-4 bg-himgiri-primary rounded-full flex items-center justify-center text-white"><Check className="h-2.5 w-2.5" /></div>}
                       </div>
                       <div>
                         <span className="font-bold text-xs text-gray-950 block">Class Delivery</span>
@@ -1496,7 +1784,7 @@ export default function CustomerHome() {
                 {/* Form & Price summary */}
                 <form onSubmit={handlePlaceOrder} className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-4">
                   <h4 className="text-sm font-black uppercase tracking-wider text-gray-800">
-                    Student & Shipping Info
+                    Customer & Delivery Details
                   </h4>
 
                   <div className="space-y-3">
@@ -1543,7 +1831,8 @@ export default function CustomerHome() {
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <input
                           type="email"
-                          placeholder="Parent Email (Optional)"
+                          required
+                          placeholder="Parent Email *"
                           className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
@@ -1608,7 +1897,7 @@ export default function CustomerHome() {
                     </div>
 
                     {/* Delivery Map Picker */}
-                    {includeDelivery && (
+                    {isHomeDelivery && (
                       <div className="pt-1">
                         {!showMap ? (
                           <button
@@ -1680,19 +1969,11 @@ export default function CustomerHome() {
                   {/* Price Summary */}
                   <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-semibold space-y-2 mt-4">
                     <div className="flex justify-between text-gray-500">
-                      <span>Items Total (MRP Incl. GST)</span>
+                      <span>Items Total (Incl. GST)</span>
                       <span className="font-mono">₹{itemsTotal.toFixed(2)}</span>
                     </div>
                     
-                    <div className="flex justify-between text-gray-500">
-                      <span>Delivery & Handling Fee</span>
-                      <span className="font-mono">₹{deliveryBase.toFixed(2)}</span>
-                    </div>
-                    
-                    <div className="flex justify-between text-gray-500">
-                      <span>Delivery GST (18%)</span>
-                      <span className="font-mono">₹{deliveryGst.toFixed(2)}</span>
-                    </div>
+
 
                     <div className="flex justify-between text-sm font-black text-gray-900 border-t border-gray-200/50 pt-2 mt-2">
                       <span>Grand Total</span>
@@ -1805,8 +2086,7 @@ export default function CustomerHome() {
                   {/* Pricing Details */}
                   {(() => {
                     const gstPercent = getGstPercentByName(selectedDetailItem.categoryName);
-                    const sellingPriceWithGst = selectedDetailItem.price * (1 + gstPercent / 100);
-                    const isDiscounted = sellingPriceWithGst < selectedDetailItem.mrp - 0.05;
+                    const sellingPriceWithGst = getInclusivePrice(selectedDetailItem.price, selectedDetailItem.categoryName);
                     return (
                       <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2.5">
                         <div className="flex justify-between items-baseline">
@@ -1816,18 +2096,6 @@ export default function CustomerHome() {
                               ₹{sellingPriceWithGst.toFixed(2)}
                             </span>
                           </div>
-                          
-                          {isDiscounted && (
-                            <div className="text-right">
-                              <span className="text-[10px] text-gray-450 block font-semibold mb-0.5">MRP</span>
-                              <span className="font-mono text-xs text-gray-400 block line-through">
-                                ₹{selectedDetailItem.mrp.toFixed(2)}
-                              </span>
-                              <span className="text-[10px] bg-green-50 text-green-700 font-bold px-1.5 py-0.5 rounded mt-1 inline-block">
-                                Save ₹{(selectedDetailItem.mrp - sellingPriceWithGst).toFixed(2)}
-                              </span>
-                            </div>
-                          )}
                         </div>
 
                         <div className="border-t border-slate-200/50 pt-2 flex justify-between text-[10px] font-semibold text-slate-500">
@@ -1936,6 +2204,287 @@ export default function CustomerHome() {
           </div>
         );
       })()}
+
+      {/* Pre-Checkout Invoice Confirmation Modal */}
+      {showCheckoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div 
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-250 cursor-pointer" 
+            onClick={() => setShowCheckoutModal(false)} 
+          />
+          
+          <div className="relative bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 animate-in zoom-in-95 duration-200 z-10">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-black text-gray-900 tracking-tight">Confirm Order & Invoice Preview</h3>
+                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-0.5">Please review your invoice details before payment</p>
+              </div>
+              <button 
+                onClick={() => setShowCheckoutModal(false)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full p-2 hover:rotate-90 transition-all focus:outline-none"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 p-6 overflow-y-auto space-y-6">
+              
+              {/* Delivery & Student Summary */}
+              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 text-xs font-semibold text-gray-700 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">Customer Details</span>
+                  <div className="text-gray-900 font-black text-sm">{firstName} {lastName}</div>
+                  <div>Email: {email}</div>
+                  <div>Mobile: {mobile}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">Delivery & Handover</span>
+                  <div>
+                    {isHomeDelivery ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-orange-600 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full">🏠 Home Delivery</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-teal-600 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full">🏫 Class Delivery</span>
+                    )}
+                  </div>
+                  <div className="text-gray-900 font-bold mt-1">{addressLine1}</div>
+                  {addressLine2 && <div className="text-gray-500">{addressLine2}</div>}
+                  <div>{city} - {pincode} ({selectedStateName})</div>
+                </div>
+              </div>
+
+              {/* Invoice Breakdown */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Itemized Charges</h4>
+                <div className="border border-slate-150 rounded-2xl overflow-hidden">
+                  <table className="min-w-full divide-y divide-slate-150">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-4 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-wider">Item</th>
+                        <th className="px-4 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-wider">Type</th>
+                        <th className="px-4 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-wider">Qty</th>
+                        <th className="px-4 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-wider">Base Price</th>
+                        <th className="px-4 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-wider">GST</th>
+                        <th className="px-4 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-wider">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs font-semibold text-gray-700 bg-white">
+                      {cartItems.map((item, idx) => {
+                        const gstPercent = getGstPercentByName(item.categoryName);
+                        const baseTotal = item.price * item.quantity;
+                        const taxTotal = baseTotal * (gstPercent / 100);
+                        const lineTotal = baseTotal + taxTotal;
+                        return (
+                          <tr key={idx}>
+                            <td className="px-4 py-3 font-bold text-gray-900">{item.itemName}</td>
+                            <td className="px-4 py-3">
+                              {item.isKitItem ? (
+                                <Badge variant="info" className="text-[9px] font-bold px-1.5 py-0.5 rounded animate-none">Kit</Badge>
+                              ) : (
+                                <Badge variant="gray" className="text-[9px] font-bold px-1.5 py-0.5 rounded animate-none">Extra</Badge>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center font-bold text-gray-900">{item.quantity}</td>
+                            <td className="px-4 py-3 text-right font-mono">₹{item.price.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right text-gray-500 font-mono">
+                              ₹{taxTotal.toFixed(2)} 
+                              <span className="text-[9px] block text-gray-400">({gstPercent}%)</span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-gray-900 font-mono">₹{lineTotal.toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Financial Totals */}
+              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 flex justify-end">
+                <div className="w-full sm:w-64 space-y-2 text-xs font-bold text-gray-600">
+                  <div className="flex justify-between">
+                    <span>Subtotal (Excl. GST)</span>
+                    <span className="text-gray-900 font-mono">₹{subTotal.toFixed(2)}</span>
+                  </div>
+                  {isIntraState ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span>CGST (Central Tax)</span>
+                        <span className="text-gray-900 font-mono">₹{cgstAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>SGST (State Tax)</span>
+                        <span className="text-gray-900 font-mono">₹{sgstAmount.toFixed(2)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between">
+                      <span>IGST (Integrated Tax)</span>
+                      <span className="text-gray-900 font-mono">₹{igstAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span>Delivery Charges</span>
+                    <span className="text-green-600 font-bold uppercase">Free</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-200 pt-2 text-sm font-black">
+                    <span className="uppercase tracking-tight text-gray-900">Total Payable</span>
+                    <span className="font-mono text-base text-himgiri-primary">₹{grandTotal.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row gap-3 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={() => setShowCheckoutModal(false)}
+                className="rounded-2xl font-bold border-gray-250"
+              >
+                Back to Edit
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                onClick={executeOrderPlacement}
+                className="rounded-2xl font-black px-6 shadow-md shadow-himgiri-primary/20"
+              >
+                Confirm & Pay ₹{grandTotal.toFixed(2)}
+              </Button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Lookup & Tracking Sliding Drawer */}
+      {showLookupPanel && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Overlay */}
+          <div 
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+            onClick={() => {
+              setShowLookupPanel(false);
+              setLookupResults([]);
+            }}
+          />
+
+          {/* Drawer Body */}
+          <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col p-6 border-l border-slate-100 animate-in slide-in-from-right duration-250 z-10">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-lg font-black text-gray-950">Track My Order</h3>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Search for invoices & delivery statuses</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowLookupPanel(false);
+                  setLookupResults([]);
+                }}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full p-2.5 hover:rotate-90 transition-all focus:outline-none"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleLookupSearch} className="space-y-4 mb-6">
+              <div>
+                <label className="text-[10px] text-gray-400 font-black uppercase tracking-wider block mb-1">Mobile Number</label>
+                <input 
+                  type="text" 
+                  placeholder="Enter 10-digit number"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                  value={lookupMobile}
+                  onChange={(e) => setLookupMobile(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-400 font-black uppercase tracking-wider block mb-1">Billing Pincode</label>
+                <input 
+                  type="text" 
+                  placeholder="Enter 6-digit Pincode"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                  value={lookupPincode}
+                  onChange={(e) => setLookupPincode(e.target.value)}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSearchingLookup}
+                className="w-full py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+              >
+                {isSearchingLookup ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Searching...</span>
+                  </>
+                ) : (
+                  <span>Track & View Invoices</span>
+                )}
+              </button>
+            </form>
+
+            {/* Results */}
+            <div className="flex-1 overflow-y-auto space-y-4">
+              <div className="text-[10px] text-gray-400 font-black uppercase tracking-wider mb-2">Search Results</div>
+              
+              {lookupResults.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 text-xs font-bold">
+                  Enter details above to fetch your order status.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {lookupResults.map((order, idx) => (
+                    <div key={idx} className="p-4 border border-slate-150 rounded-2xl space-y-3 bg-slate-50/40">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-[9px] text-slate-400 font-black font-mono block">
+                            {new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </span>
+                          <span className="text-xs font-black text-gray-900">{order.invoiceNumber}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[9px] text-gray-400 font-bold block">Total Paid</span>
+                          <span className="text-xs font-black font-mono text-gray-900">₹{order.grandTotal.toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded-md bg-slate-100 text-slate-700">
+                          {order.status}
+                        </span>
+                        <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-md ${
+                          order.paymentStatus.toLowerCase() === 'success' || order.paymentStatus.toLowerCase() === 'paid'
+                            ? 'bg-green-50 text-green-700 border border-green-150' 
+                            : 'bg-orange-50 text-orange-700 border border-orange-150'
+                        }`}>
+                          {order.paymentStatus}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadLookupInvoice(order.id, order.invoiceNumber)}
+                        className="w-full py-2 bg-blue-50 border border-blue-100 hover:bg-blue-100 text-blue-700 font-extrabold text-[10px] rounded-xl tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                      >
+                        <CreditCard className="h-3.5 w-3.5" />
+                        <span>Download Invoice</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

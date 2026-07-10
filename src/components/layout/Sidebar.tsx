@@ -7,7 +7,8 @@ import {
   BarChart3,
   X,
   Settings,
-  Info as InfoIcon
+  Info as InfoIcon,
+  ShoppingBag
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { clsx } from 'clsx';
@@ -31,6 +32,14 @@ export default function Sidebar({ isOpen, onClose, isCollapsed }: SidebarProps) 
     enabled: !!user,
   });
   const lowStockCount = lowStockData?.data?.length || 0;
+
+  const { data: statsData } = useQuery({
+    queryKey: ['dashboardStats'],
+    queryFn: () => inventoryService.getDashboardStats(),
+    refetchInterval: 30000,
+    enabled: !!user,
+  });
+  const pendingOrdersCount = statsData?.data?.pendingOrders || 0;
 
   const menuItems = [
     { 
@@ -136,6 +145,12 @@ export default function Sidebar({ isOpen, onClose, isCollapsed }: SidebarProps) 
                           <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                         </span>
                       )}
+                      {isCollapsed && item.label === 'Account' && pendingOrdersCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                      )}
                     </div>
                     {!isCollapsed && <span className="whitespace-nowrap animate-in fade-in duration-500">{item.label}</span>}
                     {!isCollapsed && item.label === 'Inventory' && lowStockCount > 0 && (
@@ -144,6 +159,14 @@ export default function Sidebar({ isOpen, onClose, isCollapsed }: SidebarProps) 
                         isActive ? "bg-white text-himgiri-primary" : "bg-red-500 text-white"
                       )}>
                         {lowStockCount}
+                      </span>
+                    )}
+                    {!isCollapsed && item.label === 'Account' && pendingOrdersCount > 0 && (
+                      <span className={clsx(
+                        "ml-auto text-[10px] font-black px-2 py-0.5 rounded-full transition-colors",
+                        isActive ? "bg-white text-himgiri-primary" : "bg-red-500 text-white"
+                      )}>
+                        {pendingOrdersCount}
                       </span>
                     )}
                   </>

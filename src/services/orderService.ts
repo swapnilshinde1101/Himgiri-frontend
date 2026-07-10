@@ -13,7 +13,7 @@ export interface CreateOrderRequest {
   customerGstin?: string | null;
   gradeId: string | null;
   items: { itemId: string; quantity: number; isKitItem: boolean }[];
-  includeDelivery: boolean;
+  isHomeDelivery: boolean;
 }
 
 export interface OrderSummary {
@@ -42,7 +42,7 @@ export const orderService = {
   },
 
   triggerWebhook: async (payload: JodoWebhookPayload): Promise<ApiResponse<boolean>> => {
-    const { data } = await api.post<ApiResponse<boolean>>('/orders/webhook', payload);
+    const { data } = await api.post<ApiResponse<boolean>>('/payments/webhook', payload);
     return data;
   },
 
@@ -57,6 +57,13 @@ export const orderService = {
 
   getOrders: async (request?: any): Promise<ApiResponse<OrderSummary[]>> => {
     const { data } = await api.get<ApiResponse<OrderSummary[]>>('/orders', { params: request });
+    return data;
+  },
+
+  lookupOrders: async (mobile: string, pincode: string): Promise<ApiResponse<OrderSummary[]>> => {
+    const { data } = await api.get<ApiResponse<OrderSummary[]>>('/orders/lookup', {
+      params: { mobile, pincode }
+    });
     return data;
   },
 
