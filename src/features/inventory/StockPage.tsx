@@ -62,7 +62,7 @@ export default function StockPage() {
   // Update Stock Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [stockAdjustment, setStockAdjustment] = useState<number>(0);
+  const [targetStock, setTargetStock] = useState<number>(0);
   const [selectedReason, setSelectedReason] = useState<string>('Manual Update');
 
   // ── Master Data Queries ──
@@ -104,7 +104,7 @@ export default function StockPage() {
   const handleAdjustClick = (item: Item, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedItem(item);
-    setStockAdjustment(0);
+    setTargetStock(item.stockQty);
     setSelectedReason('Manual Update');
     setIsModalOpen(true);
   };
@@ -112,22 +112,22 @@ export default function StockPage() {
   const handleSaveStock = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItem) return;
-    if (stockAdjustment === 0) {
-      toast.error('Adjustment cannot be zero');
+    const delta = targetStock - selectedItem.stockQty;
+    if (delta === 0) {
+      toast.error('New stock level must be different from current stock');
       return;
     }
-    const estimatedNewStock = selectedItem.stockQty + stockAdjustment;
-    if (estimatedNewStock < 0) {
+    if (targetStock < 0) {
       toast.error('Stock level cannot fall below 0');
       return;
     }
-    if (estimatedNewStock > selectedItem.targetQty) {
+    if (targetStock > selectedItem.targetQty) {
       toast.error(`Stock level cannot exceed Target Quantity (${selectedItem.targetQty})`);
       return;
     }
     adjustStockMutation.mutate({
       id: selectedItem.id,
-      adjustmentQty: stockAdjustment,
+      adjustmentQty: delta,
       reason: selectedReason,
       lastSeenStockQty: selectedItem.stockQty
     });
@@ -439,30 +439,34 @@ export default function StockPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-himgiri-secondary-dark/70 mb-2">
-                    Adjustment (e.g. +5 or -3)
+                    New Stock Level
                   </label>
                   <input
                     type="number"
                     required
-                    placeholder="Enter integer adjustment"
+                    min={0}
+                    placeholder="Enter new stock quantity"
                     className="w-full px-5 py-3 border border-gray-200 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:border-himgiri-primary transition-all"
-                    value={stockAdjustment === 0 ? '' : stockAdjustment}
-                    onChange={(e) => setStockAdjustment(parseInt(e.target.value) || 0)}
+                    value={targetStock}
+                    onChange={(e) => setTargetStock(parseInt(e.target.value) || 0)}
                   />
                 </div>
                 
                 <div className="flex flex-col justify-center bg-blue-50/50 border border-blue-100 rounded-2xl p-4">
                   <span className="text-[10px] font-black text-blue-600 uppercase tracking-wider">
-                    Estimated New Stock
+                    Calculated Adjustment
                   </span>
                   <p className="text-2xl font-black text-blue-700 mt-1">
-                    {Math.max(0, (selectedItem?.stockQty ?? 0) + stockAdjustment)}{' '}
+                    {(() => {
+                      const delta = targetStock - (selectedItem?.stockQty ?? 0);
+                      return delta > 0 ? `+${delta}` : delta.toString();
+                    })()}{' '}
                     <span className="text-sm font-medium text-blue-600">
                       {selectedItem?.unit || 'Units'}
                     </span>
                   </p>
                   <span className="text-[10px] text-gray-500 mt-1">
-                    Stock cannot fall below 0
+                    Target stock limit: {selectedItem?.targetQty ?? 0}
                   </span>
                 </div>
               </div>
