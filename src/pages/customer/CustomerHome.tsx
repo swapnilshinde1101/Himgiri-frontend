@@ -405,6 +405,12 @@ export default function CustomerHome() {
   const [lookupResults, setLookupResults] = useState<any[]>([]);
   const [isSearchingLookup, setIsSearchingLookup] = useState(false);
 
+  useEffect(() => {
+    if (window.location.pathname === '/lookup') {
+      setShowLookupPanel(true);
+    }
+  }, []);
+
   // ── Queries ──
   const { data: kitsRes, isLoading: kitsLoading } = useQuery({
     queryKey: ['public-kits'],
@@ -681,10 +687,15 @@ export default function CustomerHome() {
       const res = await orderService.createOrder(orderReq);
       if (res.statusCode === 200 && res.data) {
         setCreatedOrder(res.data);
-        setShowSimulator(true);
-        setSimulatorStatus('idle');
-        setSimulatorMessage('');
         toast.success('Order generated in system. Redirecting to payment...');
+        
+        // Initiate Jodo payment
+        try {
+          const payRes = await orderService.initiatePayment(res.data.id);
+          window.location.href = payRes.redirectUrl;
+        } catch (payErr: any) {
+          toast.error(payErr?.response?.data?.message || 'Failed to initiate payment. Please try again.');
+        }
       } else {
         toast.error(res.message || 'Failed to place order.');
       }

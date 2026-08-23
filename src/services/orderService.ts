@@ -46,6 +46,16 @@ export const orderService = {
     return data;
   },
 
+  initiatePayment: async (orderId: string): Promise<{ redirectUrl: string }> => {
+    const { data } = await api.post<ApiResponse<{ redirectUrl: string }>>('/payments/initiate', { orderId });
+    return data.data;
+  },
+
+  getOrderLookup: async (orderId: string): Promise<ApiResponse<any>> => {
+    const { data } = await api.get<ApiResponse<any>>(`/orders/${orderId}/lookup`);
+    return data;
+  },
+
   getOrder: async (id: string, token: string): Promise<ApiResponse<any>> => {
     const { data } = await api.get<ApiResponse<any>>(`/orders/${id}`, {
       headers: {

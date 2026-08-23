@@ -4,6 +4,7 @@ import ProtectedRoute from '../components/shared/ProtectedRoute';
 import AdminLayout from '../components/layout/AdminLayout';
 import AdminLoginPage from '../pages/admin/LoginPage';
 import CustomerHome from '../pages/customer/CustomerHome';
+import ConfirmationPage from '../pages/customer/ConfirmationPage';
 import DashboardPage from '../pages/admin/DashboardPage';
 import AdminOrdersPage from '../pages/admin/orders/OrdersPage';
 import AdminOrderDetailPage from '../pages/admin/orders/OrderDetailPage';
@@ -41,6 +42,8 @@ export default function AppRoutes() {
     <Routes>
       {/* Public customer routes */}
       <Route path="/" element={<CustomerHome />} />
+      <Route path="/lookup" element={<CustomerHome />} />
+      <Route path="/confirmation/:orderId" element={<ConfirmationPage />} />
 
       {/* Auth routes */}
       <Route path="/admin/login" element={<AdminLoginPage />} />
