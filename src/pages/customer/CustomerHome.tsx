@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { kitService } from '../../services/kitService';
 import { orderService } from '../../services/orderService';
@@ -391,12 +391,7 @@ export default function CustomerHome() {
 
   // Checkout states
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  const [createdOrder, setCreatedOrder] = useState<any>(null);
-  const [showSimulator, setShowSimulator] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
-  const [simulatorStatus, setSimulatorStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
-  const [simulatorMessage, setSimulatorMessage] = useState('');
 
   // Lookup & Tracking states
   const [showLookupPanel, setShowLookupPanel] = useState(false);
@@ -686,7 +681,6 @@ export default function CustomerHome() {
 
       const res = await orderService.createOrder(orderReq);
       if (res.statusCode === 200 && res.data) {
-        setCreatedOrder(res.data);
         toast.success('Order generated in system. Redirecting to payment...');
         
         // Initiate Jodo payment
@@ -704,169 +698,6 @@ export default function CustomerHome() {
     } finally {
       setIsPlacingOrder(false);
     }
-  };
-
-  const handleDownloadInvoice = async () => {
-    if (!createdOrder) return;
-    setIsDownloadingInvoice(true);
-    try {
-      await orderService.downloadInvoice(createdOrder.id, createdOrder.invoiceNumber, createdOrder.mobile, createdOrder.pincode);
-      toast.success('Invoice PDF downloaded successfully!');
-    } catch (err: any) {
-      let errorMsg = 'Failed to download invoice.';
-      if (err.response?.data instanceof Blob) {
-        try {
-          const text = await err.response.data.text();
-          const errorJson = JSON.parse(text);
-          errorMsg = errorJson.message || errorMsg;
-        } catch {
-          // Keep default fallback
-        }
-      } else if (err.response?.data?.message) {
-        errorMsg = err.response.data.message;
-      } else if (err.message) {
-        errorMsg = err.message;
-      }
-      
-      // Map 503/GSTIN missing messages
-      if (err.response?.status === 503 || errorMsg.toLowerCase().includes('gstin')) {
-        errorMsg = 'Invoice not available — GSTIN configuration pending';
-      }
-      
-      toast.error(errorMsg);
-    } finally {
-      setIsDownloadingInvoice(false);
-    }
-  };
-
-  const handlePrintOrderSlip = () => {
-    if (!createdOrder) return;
-    
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('Please allow popups to print the order slip.');
-      return;
-    }
-
-    const itemsHtml = cartItems.map(item => `
-      <tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 8px; text-align: left;">${item.itemName}</td>
-        <td style="padding: 8px; text-align: center;">${item.isKitItem ? 'Kit' : 'Extra'}</td>
-        <td style="padding: 8px; text-align: center;">${item.quantity}</td>
-        <td style="padding: 8px; text-align: right;">₹${item.price.toFixed(2)}</td>
-        <td style="padding: 8px; text-align: right;">₹${(item.price * item.quantity).toFixed(2)}</td>
-      </tr>
-    `).join('');
-
-    const invoiceNo = createdOrder.invoiceNumber;
-    const dateStr = new Date().toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-
-    const isHome = isHomeDelivery;
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Order Slip - ${invoiceNo}</title>
-          <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #333; line-height: 1.4; }
-            .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #0056b3; padding-bottom: 15px; }
-            .title { font-size: 22px; font-weight: bold; color: #0056b3; margin: 0; }
-            .subtitle { font-size: 11px; font-weight: bold; color: #777; margin: 5px 0 0 0; text-transform: uppercase; letter-spacing: 1px; }
-            .grid { display: grid; grid-template-cols: 1fr 1fr; gap: 20px; margin-bottom: 25px; font-size: 13px; }
-            .section-title { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #888; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 8px; }
-            .value { font-weight: bold; color: #111; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 13px; }
-            th { background: #f5f5f5; padding: 10px 8px; font-weight: bold; border-bottom: 2px solid #ddd; text-transform: uppercase; font-size: 11px; color: #555; }
-            .totals { float: right; width: 280px; font-size: 13px; }
-            .total-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
-            .total-row.grand { font-size: 16px; font-weight: bold; color: #0056b3; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px; }
-            .footer { text-align: center; margin-top: 50px; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 15px; }
-            @media print {
-              body { padding: 0; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="title">Himgiri Goods Portal</div>
-            <div class="subtitle">DPS Hinjawadi — Order Handover Slip</div>
-          </div>
-          
-          <div class="grid">
-            <div>
-              <div class="section-title">Order Details</div>
-              <div>Invoice No: <span class="value">${invoiceNo}</span></div>
-              <div>Date & Time: <span class="value">${dateStr}</span></div>
-              <div>Payment Status: <span class="value" style="color: green;">SUCCESS (PAID)</span></div>
-            </div>
-            <div>
-              <div class="section-title">Delivery Details</div>
-              <div>Customer Name: <span class="value">${firstName} ${lastName}</span></div>
-              <div>Contact: <span class="value">${mobile}</span></div>
-              <div>Method: <span class="value" style="color: #0056b3;">${isHome ? '🏠 Home Delivery' : '🏫 Classroom Handover'}</span></div>
-              <div>Address: <span class="value">${addressLine1} ${addressLine2 ? ', ' + addressLine2 : ''}</span></div>
-              <div>Location: <span class="value">${city} - ${pincode} (${selectedStateName})</span></div>
-            </div>
-          </div>
-
-          <div class="section-title">Ordered Items</div>
-          <table>
-            <thead>
-              <tr>
-                <th style="text-align: left;">Item Name</th>
-                <th style="text-align: center; width: 60px;">Type</th>
-                <th style="text-align: center; width: 50px;">Qty</th>
-                <th style="text-align: right; width: 90px;">Base Price</th>
-                <th style="text-align: right; width: 100px;">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-          </table>
-
-          <div class="totals">
-            <div class="total-row">
-              <span>Subtotal (Excl. GST)</span>
-              <span>₹${subTotal.toFixed(2)}</span>
-            </div>
-            <div class="total-row">
-              <span>GST (Taxes)</span>
-              <span>₹${totalGst.toFixed(2)}</span>
-            </div>
-            <div class="total-row">
-              <span>Delivery Charge</span>
-              <span style="color: green; font-weight: bold;">FREE</span>
-            </div>
-            <div class="total-row grand">
-              <span>Grand Total</span>
-              <span>₹${grandTotal.toFixed(2)}</span>
-            </div>
-          </div>
-          
-          <div style="clear: both;"></div>
-
-          <div class="footer">
-            Thank you for purchasing with Himgiri Goods Portal. Please show this receipt at the classroom/school counter if required.
-          </div>
-
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 500);
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
   };
 
   const handleLookupSearch = async (e: React.FormEvent) => {
@@ -918,48 +749,6 @@ export default function CustomerHome() {
     }
   };
 
-  // ── Simulator Actions ──
-  const handlePaymentSuccess = async () => {
-    if (!createdOrder) return;
-    setSimulatorStatus('processing');
-    setSimulatorMessage('Initiating webhook transaction check on server...');
-
-    try {
-      const txnId = 'TXN_SIM_' + Math.floor(Math.random() * 10000000);
-      const webhookPayload = {
-        orderId: createdOrder.id,
-        transactionId: txnId,
-        status: 'SUCCESS',
-        amount: createdOrder.grandTotal,
-        message: 'Payment simulation success'
-      };
-
-      const res = await orderService.triggerWebhook(webhookPayload);
-      if (res.statusCode === 200) {
-        setSimulatorStatus('success');
-        setSimulatorMessage('Payment succeeded. Stock quantities successfully updated in inventory!');
-        toast.success('Payment completed successfully.');
-      } else {
-        setSimulatorStatus('failed');
-        setSimulatorMessage(res.message || 'Gateway confirmed payment, but inventory update failed.');
-      }
-    } catch (err: any) {
-      setSimulatorStatus('failed');
-      setSimulatorMessage(err.response?.data?.message || err.message || 'Connection failed.');
-    }
-  };
-
-  const handlePaymentFail = async () => {
-    if (!createdOrder) return;
-    setSimulatorStatus('processing');
-    setSimulatorMessage('Sending failure callback to merchant server...');
-    
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setSimulatorStatus('failed');
-    setSimulatorMessage('Payment cancelled or rejected by Jodo Gateway. Stock reservation rolled back.');
-    toast.error('Payment cancelled.');
-  };
-
   const resetCheckout = () => {
     setSelectedGradeId(undefined); // Reset back to welcome/landing state
     setSelectedKit(null);
@@ -970,9 +759,6 @@ export default function CustomerHome() {
     setMobile('');
     setAddressLine1('');
     setAddressLine2('');
-    setCreatedOrder(null);
-    setShowSimulator(false);
-    setSimulatorStatus('idle');
   };
 
   return (
@@ -1011,160 +797,7 @@ export default function CustomerHome() {
 
       {/* Main Section */}
       <main className="max-w-7xl mx-auto px-6 py-10">
-        {showSimulator ? (
-          /* JODO MOCK SIMULATOR MODAL PANEL */
-          <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="bg-slate-900 text-white px-8 py-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CreditCard className="h-6 w-6 text-himgiri-primary" />
-                <span className="font-extrabold text-sm uppercase tracking-wider">
-                  Jodo Payment Sandbox Gateway
-                </span>
-              </div>
-              <span className="bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                Demo Simulator
-              </span>
-            </div>
-
-            <div className="p-8 space-y-6">
-              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 text-center space-y-2">
-                <span className="text-xs font-extrabold text-gray-400 uppercase tracking-widest block">
-                  Amount Due to Merchant
-                </span>
-                <p className="text-4xl font-black text-gray-900 font-mono">
-                  ₹{createdOrder?.grandTotal.toFixed(2)}
-                </p>
-                <div className="flex justify-center gap-4 text-xs font-semibold text-gray-500 pt-2 border-t border-gray-200/50 mt-4">
-                  <span>Invoice: <strong className="text-gray-700 font-mono">{createdOrder?.invoiceNumber}</strong></span>
-                  <span>|</span>
-                  <span>Customer: <strong className="text-gray-700">{createdOrder?.customerName}</strong></span>
-                </div>
-              </div>
-
-              {simulatorStatus === 'idle' && (
-                <div className="space-y-4">
-                  <div className="text-center p-4 bg-amber-50 border border-amber-100 text-amber-800 rounded-2xl text-xs font-bold flex items-center gap-2.5 justify-center">
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
-                    <span>This simulator bypasses real payment card gateways to allow functional testing of webhook concurrency.</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                    <button
-                      type="button"
-                      onClick={handlePaymentSuccess}
-                      className="px-6 py-4 rounded-2xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 active:scale-95 transition-all shadow-md shadow-emerald-600/10 flex flex-col items-center justify-center gap-1.5"
-                    >
-                      <CheckCircle2 className="h-5 w-5" />
-                      <span>Simulate Success Payment</span>
-                      <span className="text-[10px] text-emerald-200 font-medium">Triggers webhook and updates stock</span>
-                    </button>
-                    
-                    <button
-                      type="button"
-                      onClick={handlePaymentFail}
-                      className="px-6 py-4 rounded-2xl bg-red-50 border border-red-100 text-red-700 font-bold hover:bg-red-100 active:scale-95 transition-all flex flex-col items-center justify-center gap-1.5"
-                    >
-                      <XCircle className="h-5 w-5 text-red-500" />
-                      <span>Simulate Failed Payment</span>
-                      <span className="text-[10px] text-red-500/80 font-medium">Cancels flow without deducting stock</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {simulatorStatus === 'processing' && (
-                <div className="text-center py-10 space-y-3">
-                  <Loader2 className="h-10 w-10 text-himgiri-primary animate-spin mx-auto" />
-                  <p className="text-sm font-bold text-gray-600">{simulatorMessage}</p>
-                </div>
-              )}
-
-              {simulatorStatus === 'success' && (
-                <div className="text-center py-6 space-y-5 animate-in fade-in duration-300">
-                  <div className="h-16 w-16 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center mx-auto text-emerald-600">
-                    <CheckCircle2 className="h-10 w-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-2xl font-black text-gray-900">Order Confirmed!</h3>
-                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
-                      Invoice No: {createdOrder?.invoiceNumber}
-                    </p>
-                    <p className="text-sm font-medium text-gray-500 max-w-md mx-auto">
-                      {simulatorMessage}
-                    </p>
-                  </div>
-
-                  {/* Action Buttons to print slip & download invoice */}
-                  <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
-                    <button
-                      type="button"
-                      onClick={handlePrintOrderSlip}
-                      className="px-4 py-3 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm"
-                    >
-                      <ShoppingBag className="h-4 w-4 text-slate-500" />
-                      <span>Print Order Slip</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isDownloadingInvoice}
-                      onClick={handleDownloadInvoice}
-                      className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-95 shadow-md shadow-blue-500/10"
-                    >
-                      {isDownloadingInvoice ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Downloading Invoice...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="h-4 w-4" />
-                          <span>Download Invoice</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <div className="pt-4 max-w-md mx-auto border-t border-slate-100 mt-6">
-                    <Button
-                      onClick={resetCheckout}
-                      className="w-full rounded-2xl bg-slate-900 text-white hover:bg-slate-800"
-                    >
-                      Done (Back to Home)
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {simulatorStatus === 'failed' && (
-                <div className="text-center py-6 space-y-5 animate-in fade-in duration-300">
-                  <div className="h-16 w-16 bg-red-50 border border-red-200 rounded-full flex items-center justify-center mx-auto text-red-600">
-                    <XCircle className="h-10 w-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-2xl font-black text-gray-900">Payment Unsuccessful</h3>
-                    <p className="text-sm font-semibold text-red-600 max-w-md mx-auto">
-                      {simulatorMessage}
-                    </p>
-                  </div>
-                  <div className="pt-4 grid grid-cols-2 gap-3 max-w-sm mx-auto">
-                    <button
-                      onClick={() => setSimulatorStatus('idle')}
-                      className="px-4 py-3 border border-gray-200 rounded-2xl text-xs font-bold text-gray-600 hover:bg-gray-50"
-                    >
-                      Retry Payment
-                    </button>
-                    <button
-                      onClick={resetCheckout}
-                      className="px-4 py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-slate-800"
-                    >
-                      Cancel Order
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : selectedGradeId === undefined ? (
+        {selectedGradeId === undefined ? (
           /* WELCOME / LANDING MODE SELECTION STATE */
           <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
             {/* Hero Banner */}

@@ -27,22 +27,9 @@ export interface OrderSummary {
   createdAt: string;
 }
 
-export interface JodoWebhookPayload {
-  orderId: string;
-  transactionId: string;
-  status: string;
-  amount: number;
-  message: string;
-}
-
 export const orderService = {
   createOrder: async (request: CreateOrderRequest): Promise<ApiResponse<OrderSummary>> => {
     const { data } = await api.post<ApiResponse<OrderSummary>>('/orders', request);
-    return data;
-  },
-
-  triggerWebhook: async (payload: JodoWebhookPayload): Promise<ApiResponse<boolean>> => {
-    const { data } = await api.post<ApiResponse<boolean>>('/payments/webhook', payload);
     return data;
   },
 
