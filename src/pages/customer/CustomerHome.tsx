@@ -1,44 +1,27 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { kitService } from '../../services/kitService';
 import { orderService } from '../../services/orderService';
 import { masterDataService } from '../../services/masterDataService';
 import { catalogService } from '../../services/catalogService';
-import { 
-  GraduationCap, 
-  ShoppingBag, 
-  Truck, 
-  School, 
-  Check, 
-  AlertTriangle, 
-  CreditCard, 
-  CheckCircle2, 
-  XCircle, 
-  Loader2,
-  ChevronRight,
-  Sparkles,
-  MapPin,
-  User,
-  Phone,
-  Mail,
-  BookOpen,
-  ArrowLeft,
-  Search,
-  X
-} from 'lucide-react';
-import Button from '../../components/shared/Button';
-import Badge from '../../components/shared/Badge';
+import { GraduationCap, ShoppingBag, ArrowLeft, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { 
-  validateIndianMobile, 
-  validatePincode, 
-  validateEmail, 
-  validateRequired 
+import {
+  validateIndianMobile,
+  validatePincode,
+  validateEmail,
+  validateRequired
 } from '../../utils/validation';
-import { clsx } from 'clsx';
 import type { SchoolKit, Item } from '../../types';
+import WelcomeScreen from './components/WelcomeScreen';
+import MandatoryKitSection from './components/MandatoryKitSection';
+import CatalogSection from './components/CatalogSection';
+import CheckoutSidebar from './components/CheckoutSidebar';
+import ItemDetailModal from './components/ItemDetailModal';
+import CheckoutConfirmationModal from './components/CheckoutConfirmationModal';
+import OrderLookupDrawer from './components/OrderLookupDrawer';
 
-interface CartDisplayItem {
+export interface CartDisplayItem {
   itemId: string;
   itemName: string;
   price: number;
@@ -59,7 +42,7 @@ export default function CustomerHome() {
   // - string: Grade-specific shop (Path A)
   const [selectedGradeId, setSelectedGradeId] = useState<string | null | undefined>(undefined);
   const [selectedKit, setSelectedKit] = useState<SchoolKit | null>(null);
-  
+
   // Add-on item quantities: itemId -> quantity
   const [addOnQuantities, setAddOnQuantities] = useState<Record<string, number>>({});
   const [isHomeDelivery, setIsHomeDelivery] = useState<boolean>(true);
@@ -70,290 +53,21 @@ export default function CustomerHome() {
     setActiveImageIndex(0);
   }, [selectedDetailItem]);
 
+  // Delivery map location — owned here since executeOrderPlacement needs it for the
+  // Google Maps link appended to addressLine2; DeliveryMapPicker owns everything else
+  // map-related (Leaflet instance, search, geolocation) as a controlled child.
   const [mapLocation, setMapLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [showMap, setShowMap] = useState<boolean>(false);
-  const [mapSearchVal, setMapSearchVal] = useState('');
-  const mapInstanceRef = React.useRef<any>(null);
-  const markerInstanceRef = React.useRef<any>(null);
-
-  // Auto detect location when map picker is shown
-  useEffect(() => {
-    if (showMap) {
-      handleDetectLocation();
-    }
-  }, [showMap]);
-
-  // Initialize/Update Map container
-  useEffect(() => {
-    if (!showMap) {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-        markerInstanceRef.current = null;
-      }
-      return;
-    }
-
-    const defaultLat = mapLocation ? mapLocation.lat : 18.5204;
-    const defaultLng = mapLocation ? mapLocation.lng : 73.8567;
-
-    const mapContainer = document.getElementById('delivery-map');
-    if (!mapContainer || mapInstanceRef.current) return;
-
-    const L = (window as any).L;
-    if (!L) return;
-
-    const map = L.map('delivery-map').setView([defaultLat, defaultLng], 14);
-    mapInstanceRef.current = map;
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    // Fix grey map tiles by invalidating size after render
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 200);
-
-    // Custom red SVG marker with pulse radar ring
-    const redMarkerIcon = L.divIcon({
-      className: 'custom-div-icon',
-      html: `<div class="relative flex items-center justify-center">
-               <div class="w-8 h-8 rounded-full bg-blue-500/25 absolute animate-ping" style="animation-duration: 2s;" />
-               <svg class="w-8 h-8 text-red-500 filter drop-shadow relative z-10" fill="currentColor" viewBox="0 0 24 24">
-                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-               </svg>
-             </div>`,
-      iconSize: [32, 32],
-      iconAnchor: [16, 32]
-    });
-
-    const marker = L.marker([defaultLat, defaultLng], { draggable: true, icon: redMarkerIcon }).addTo(map);
-    markerInstanceRef.current = marker;
-
-    map.on('click', (e: any) => {
-      const { lat, lng } = e.latlng;
-      marker.setLatLng([lat, lng]);
-      setMapLocation({ lat: parseFloat(lat.toFixed(6)), lng: parseFloat(lng.toFixed(6)) });
-    });
-
-    marker.on('dragend', () => {
-      const position = marker.getLatLng();
-      setMapLocation({ lat: parseFloat(position.lat.toFixed(6)), lng: parseFloat(position.lng.toFixed(6)) });
-    });
-
-    if (!mapLocation) {
-      setMapLocation({ lat: defaultLat, lng: defaultLng });
-    }
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-        markerInstanceRef.current = null;
-      }
-    };
-  }, [showMap]);
-
-  // Reverse Geocoding to auto-fill address details with 800ms debounce
-  useEffect(() => {
-    if (!mapLocation) return;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${mapLocation.lat}&lon=${mapLocation.lng}`,
-          { signal: controller.signal }
-        );
-        const data = await res.json();
-        if (data && data.address) {
-          const addr = data.address;
-          let autofilled = false;
-          
-          // Auto-fill City if empty
-          if (!city.trim()) {
-            const detectedCity = addr.city || addr.town || addr.village || addr.suburb || 'Pune';
-            setCity(detectedCity);
-            autofilled = true;
-          }
-
-          // Auto-fill Pincode if empty
-          if (!pincode.trim() && addr.postcode) {
-            setPincode(addr.postcode.replace(/\s/g, ''));
-            autofilled = true;
-          }
-
-          // Auto-fill Address Line 1 if empty
-          if (!addressLine1.trim()) {
-            const road = addr.road || addr.suburb || addr.neighbourhood || '';
-            const suburb = addr.suburb || addr.county || '';
-            let line1 = `${road}${road && suburb ? ', ' : ''}${suburb}`;
-            if (data.display_name && !line1) {
-              line1 = data.display_name.split(',').slice(0, 2).join(', ');
-            }
-            if (line1) {
-              setAddressLine1(line1);
-              autofilled = true;
-            }
-          }
-          
-          if (autofilled) {
-            toast.success('Address auto-filled from map pin!', { id: 'reverse-geo' });
-          }
-        }
-      } catch (err) {
-        // Ignore lookup errors
-      }
-    }, 800);
-
-    return () => {
-      clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [mapLocation]);
-
-  const handleDetectLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported by your browser.');
-      return;
-    }
-    toast.loading('Detecting your location...', { id: 'geo-locating' });
-
-    // Try high accuracy (GPS) first with a short timeout
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const lat = parseFloat(latitude.toFixed(6));
-        const lng = parseFloat(longitude.toFixed(6));
-        setMapLocation({ lat, lng });
-        toast.success('Location detected with high accuracy!', { id: 'geo-locating' });
-
-        if (mapInstanceRef.current && markerInstanceRef.current) {
-          mapInstanceRef.current.setView([lat, lng], 16);
-          markerInstanceRef.current.setLatLng([lat, lng]);
-        }
-      },
-      (highAccError) => {
-        // Fallback to low accuracy (Wi-Fi/IP) if GPS fails or times out (e.g. on desktops)
-        navigator.geolocation.getCurrentPosition(
-          (fallbackPosition) => {
-            const { latitude, longitude } = fallbackPosition.coords;
-            const lat = parseFloat(latitude.toFixed(6));
-            const lng = parseFloat(longitude.toFixed(6));
-            setMapLocation({ lat, lng });
-            toast.success('Location detected (approximate)!', { id: 'geo-locating' });
-
-            if (mapInstanceRef.current && markerInstanceRef.current) {
-              mapInstanceRef.current.setView([lat, lng], 16);
-              markerInstanceRef.current.setLatLng([lat, lng]);
-            }
-          },
-          (fallbackError) => {
-            let msg = 'Could not retrieve your location. Please select it manually on the map.';
-            if (fallbackError.code === fallbackError.PERMISSION_DENIED) {
-              msg = 'Location access blocked. Please enable location permissions in your browser settings.';
-            } else if (fallbackError.code === fallbackError.TIMEOUT) {
-              msg = 'Location detection timed out. Please search or select manually.';
-            }
-            toast.error(msg, { id: 'geo-locating' });
-          },
-          { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
-        );
-      },
-      { enableHighAccuracy: true, timeout: 3000, maximumAge: 0 }
-    );
-  };
-
-  const handleMapSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mapSearchVal.trim()) return;
-
-    toast.loading(`Searching for "${mapSearchVal}"...`, { id: 'map-search' });
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(mapSearchVal)}`
-      );
-      const data = await res.json();
-      if (data && data.length > 0) {
-        const { lat, lon } = data[0];
-        const latitude = parseFloat(lat);
-        const longitude = parseFloat(lon);
-        
-        setMapLocation({ lat: latitude, lng: longitude });
-        toast.success('Location found!', { id: 'map-search' });
-
-        if (mapInstanceRef.current && markerInstanceRef.current) {
-          mapInstanceRef.current.setView([latitude, longitude], 16);
-          markerInstanceRef.current.setLatLng([latitude, longitude]);
-        }
-      } else {
-        toast.error('Location not found. Please try another place name.', { id: 'map-search' });
-      }
-    } catch (err) {
-      toast.error('Search failed. Please select manually.', { id: 'map-search' });
-    }
-  };
-
 
   // Search & Category filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('All');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number>(-1);
 
   // Reset page number on category change
   useEffect(() => {
     setPageNumber(1);
   }, [selectedCategoryId]);
 
-  // Reset active suggestion index when suggestions list or dropdown status changes
-  useEffect(() => {
-    setActiveSuggestionIndex(-1);
-  }, [suggestions, showSuggestions]);
-
-  // Autocomplete matching text highlight
-  const highlightMatch = (text: string, query: string) => {
-    if (!query) return <span>{text}</span>;
-    const parts = text.split(new RegExp(`(${query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi'));
-    return (
-      <span>
-        {parts.map((part, i) => 
-          part.toLowerCase() === query.toLowerCase() 
-            ? <strong key={i} className="text-blue-600 font-extrabold">{part}</strong> 
-            : <span key={i}>{part}</span>
-        )}
-      </span>
-    );
-  };
-
-  // Keyboard navigation for suggestions dropdown
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (showSuggestions && suggestions.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setActiveSuggestionIndex(prev => (prev + 1) % suggestions.length);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setActiveSuggestionIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
-          const selected = suggestions[activeSuggestionIndex];
-          setSearchQuery(selected);
-          setDebouncedSearchQuery(selected);
-          setPageNumber(1);
-          setShowSuggestions(false);
-        }
-      } else if (e.key === 'Escape') {
-        setShowSuggestions(false);
-      }
-    }
-  };
-
-  
   // Pagination & Catalog list states
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -407,7 +121,7 @@ export default function CustomerHome() {
   }, []);
 
   // ── Queries ──
-  const { data: kitsRes, isLoading: kitsLoading } = useQuery({
+  const { data: kitsRes } = useQuery({
     queryKey: ['public-kits'],
     queryFn: () => kitService.getKits({ pageNumber: 1, pageSize: 100 }),
   });
@@ -444,8 +158,6 @@ export default function CustomerHome() {
     .sort((a, b) => a.displayOrder - b.displayOrder);
   const activeCategories = categories.filter(c => c.isActive);
 
-
-
   // ── Debounce Search Query (300ms) ──
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -454,29 +166,6 @@ export default function CustomerHome() {
     }, 300);
     return () => clearTimeout(handler);
   }, [searchQuery]);
-
-  // ── Fetch autocomplete search suggestions ──
-  useEffect(() => {
-    if (searchQuery.trim().length < 2) {
-      setSuggestions([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      try {
-        const res = await catalogService.getSuggestions(searchQuery);
-        if (res.data) {
-          setSuggestions(res.data);
-        }
-      } catch (err) {
-        // Silently ignore suggestions errors
-      }
-    }, 150);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-
 
   // ── Update items on page load ──
   useEffect(() => {
@@ -489,8 +178,6 @@ export default function CustomerHome() {
       }
     }
   }, [catalogRes]);
-
-
 
   // ── Handlers ──
   const handleGradeSelect = (gradeId: string | null) => {
@@ -523,6 +210,32 @@ export default function CustomerHome() {
       }
       return updated;
     });
+  };
+
+  // ── Catalog section glue callbacks (kept here because searchQuery/pageNumber drive the
+  // catalog query above; CatalogSection owns its own suggestions/autocomplete state) ──
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+    setPageNumber(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setPageNumber(1);
+  };
+
+  const handleSuggestionSelect = (value: string) => {
+    setSearchQuery(value);
+    setDebouncedSearchQuery(value);
+    setPageNumber(1);
+  };
+
+  // Only fills fields the customer hasn't already typed into — DeliveryMapPicker
+  // decides which fields qualify (reading its own city/addressLine1/pincode props).
+  const handleAddressAutofill = (fields: { city?: string; pincode?: string; addressLine1?: string }) => {
+    if (fields.city !== undefined) setCity(fields.city);
+    if (fields.pincode !== undefined) setPincode(fields.pincode);
+    if (fields.addressLine1 !== undefined) setAddressLine1(fields.addressLine1);
   };
 
   // ── Cart Calculations ──
@@ -605,7 +318,6 @@ export default function CustomerHome() {
   });
 
   // ── Place Order ──
-  // ── Place Order ──
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
     if (cartItems.length === 0) {
@@ -654,7 +366,7 @@ export default function CustomerHome() {
     setIsPlacingOrder(true);
     setShowCheckoutModal(false);
     try {
-      const finalAddressLine2 = mapLocation 
+      const finalAddressLine2 = mapLocation
         ? `${addressLine2} (Map: https://maps.google.com/?q=${mapLocation.lat},${mapLocation.lng})`.trim()
         : addressLine2;
 
@@ -682,7 +394,7 @@ export default function CustomerHome() {
       const res = await orderService.createOrder(orderReq);
       if (res.statusCode === 200 && res.data) {
         toast.success('Order generated in system. Redirecting to payment...');
-        
+
         // Initiate Jodo payment
         try {
           const payRes = await orderService.initiatePayment(res.data.id);
@@ -741,24 +453,12 @@ export default function CustomerHome() {
       } else if (err.response?.data?.message) {
         errorMsg = err.response.data.message;
       }
-      
+
       if (err.response?.status === 503 || errorMsg.toLowerCase().includes('gstin')) {
         errorMsg = 'Invoice not available — GSTIN configuration pending';
       }
       toast.error(errorMsg, { id: 'lookup-download' });
     }
-  };
-
-  const resetCheckout = () => {
-    setSelectedGradeId(undefined); // Reset back to welcome/landing state
-    setSelectedKit(null);
-    setAddOnQuantities({});
-    setFirstName('');
-    setLastName('');
-    setEmail('');
-    setMobile('');
-    setAddressLine1('');
-    setAddressLine2('');
   };
 
   return (
@@ -780,7 +480,7 @@ export default function CustomerHome() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button 
+            <button
               type="button"
               onClick={() => setShowLookupPanel(true)}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95 border border-slate-200"
@@ -798,87 +498,11 @@ export default function CustomerHome() {
       {/* Main Section */}
       <main className="max-w-7xl mx-auto px-6 py-10">
         {selectedGradeId === undefined ? (
-          /* WELCOME / LANDING MODE SELECTION STATE */
-          <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
-            {/* Hero Banner */}
-            <div className="relative overflow-hidden bg-gradient-to-r from-himgiri-primary to-blue-700 text-white rounded-3xl p-8 lg:p-12 shadow-lg shadow-himgiri-primary/10">
-              <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-              <div className="relative max-w-2xl space-y-3">
-                <span className="text-xs font-black uppercase tracking-widest bg-white/20 px-3 py-1.5 rounded-full inline-flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" /> Academic Session 2026-27
-                </span>
-                <h1 className="text-3xl lg:text-4xl font-black tracking-tight leading-none">
-                  Official DPS School Kit Distribution
-                </h1>
-                <p className="text-sm lg:text-base font-semibold text-blue-100 leading-relaxed">
-                  Welcome to the DPS Hinjawadi Parent Portal. Select your child's grade package below or skip directly to browsing the general items shop.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Option A: Grade Select */}
-              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft flex flex-col justify-between gap-6 hover:shadow-md transition-shadow">
-                <div className="space-y-2">
-                  <div className="h-12 w-12 bg-himgiri-primary/10 text-himgiri-primary rounded-2xl flex items-center justify-center">
-                    <GraduationCap className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-lg font-black text-gray-900">Option A: Shop by Grade / Class</h3>
-                  <p className="text-xs text-gray-500 font-semibold leading-relaxed">
-                    Select your child's grade below to automatically load the mandatory kit bundle and see recommended school items for that class.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  {gradesLoading ? (
-                    <div className="flex items-center justify-center py-6 gap-3">
-                      <Loader2 className="h-5 w-5 text-himgiri-primary animate-spin" />
-                      <span className="text-xs font-bold text-gray-500">Loading grades...</span>
-                    </div>
-                  ) : activeGrades.length === 0 ? (
-                    <p className="text-xs text-gray-400 font-bold">No active grades found.</p>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {activeGrades.map(grade => (
-                        <button
-                          key={grade.id}
-                          type="button"
-                          onClick={() => handleGradeSelect(grade.id)}
-                          className="p-3 rounded-xl border border-gray-200 text-center hover:border-himgiri-primary hover:bg-himgiri-primary/5 transition-all text-xs font-extrabold text-gray-700 hover:text-himgiri-primary active:scale-95"
-                        >
-                          {grade.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Option B: General Shop */}
-              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft flex flex-col justify-between gap-6 hover:shadow-md transition-shadow">
-                <div className="space-y-2">
-                  <div className="h-12 w-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
-                    <ShoppingBag className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-lg font-black text-gray-900">Option B: General Items Shop</h3>
-                  <p className="text-xs text-gray-500 font-semibold leading-relaxed">
-                    Skip grade selection and browse all items directly. Perfect for buying individual textbooks, notebooks, school bags, drawing items, or replacements.
-                  </p>
-                </div>
-
-                <div className="pt-6">
-                  <button
-                    type="button"
-                    onClick={() => handleGradeSelect(null)}
-                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-sm font-extrabold active:scale-98 transition-all shadow-md shadow-emerald-600/10 flex items-center justify-center gap-2"
-                  >
-                    <span>Browse General Catalog</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <WelcomeScreen
+            gradesLoading={gradesLoading}
+            activeGrades={activeGrades}
+            onSelectGrade={handleGradeSelect}
+          />
         ) : (
           /* SHOPPING & CHECKOUT INTERFACE */
           <div className="space-y-6 animate-in fade-in duration-500">
@@ -912,7 +536,7 @@ export default function CustomerHome() {
                   </h3>
                 </div>
               </div>
-              
+
               <button
                 type="button"
                 onClick={() => setSelectedGradeId(undefined)}
@@ -925,1210 +549,132 @@ export default function CustomerHome() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               {/* Left Column: Kits and Items (8 Columns) */}
               <div className="lg:col-span-8 space-y-6">
-                
+
                 {/* Section A: Mandatory Kit (Only for Grade Option A if kit exists) */}
                 {selectedGradeId && (
-                  <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-4">
-                    <div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-himgiri-primary bg-himgiri-primary/10 px-2.5 py-1 rounded-full">
-                        Section A: Mandatory Kit
-                      </span>
-                      {selectedKit ? (
-                        <>
-                          <h3 className="text-lg font-black text-gray-900 tracking-tight mt-2.5">
-                            {selectedKit.name}
-                          </h3>
-                          <p className="text-xs text-gray-400 font-semibold leading-relaxed mt-1">
-                            {selectedKit.description || 'Constituent package items required for this grade:'}
-                          </p>
-                        </>
-                      ) : (
-                        <div className="mt-3 p-4 bg-amber-50/50 border border-amber-200/50 rounded-2xl text-xs font-semibold text-amber-800 flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                          <span>No official pre-defined kit bundle active for this grade. Select individual items below.</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {selectedKit && (
-                      <div className="divide-y divide-gray-100 border border-gray-150 rounded-2xl overflow-hidden bg-slate-50/20">
-                        {kitItems.map((item, idx) => (
-                          <div key={idx} className="p-3.5 flex items-center justify-between gap-4 hover:bg-gray-50/40 transition-colors">
-                            <div 
-                              className="flex items-center gap-3 cursor-pointer group/item" 
-                              onClick={() => {
-                                const catItem = catalogItems.find(ci => ci.id === item.itemId);
-                                if (catItem) {
-                                  setSelectedDetailItem(catItem);
-                                } else {
-                                  setSelectedDetailItem({
-                                    id: item.itemId,
-                                    name: item.itemName,
-                                    price: item.price,
-                                    mrp: item.mrp,
-                                    categoryName: item.categoryName,
-                                    unit: item.unit,
-                                    imageUrl: item.imageUrl,
-                                    storageStatus: item.storageStatus,
-                                    description: 'This is a constituent item inside the selected School Kit.',
-                                    stockQty: item.storageStatus === 'InStock' ? 999 : 0
-                                  });
-                                }
-                              }}
-                            >
-                              {item.imageUrl ? (
-                                <img 
-                                  src={item.imageUrl.split(',')[0]} 
-                                  alt={item.itemName} 
-                                  className="w-10 h-10 rounded-xl object-cover border border-gray-100 flex-shrink-0 bg-white"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-xl border border-gray-100 flex-shrink-0 bg-white flex items-center justify-center text-gray-400">
-                                  <BookOpen className="h-5 w-5" />
-                                </div>
-                              )}
-                              
-                              <div className="space-y-0.5">
-                                <span className="font-bold text-sm text-gray-900">{item.itemName}</span>
-                                <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-450 font-extrabold uppercase">
-                                  <span className="bg-white text-gray-650 border border-gray-150 px-1.5 py-0.5 rounded">{item.categoryName}</span>
-                                  <span>•</span>
-                                  <span>Qty: {item.quantity} {item.unit}</span>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="text-right">
-                              <span className="font-mono font-black text-sm text-gray-800">
-                                ₹{(getInclusivePrice(item.price, item.categoryName) * item.quantity).toFixed(2)}
-                              </span>
-                              <span className="text-[9px] text-gray-450 font-semibold block leading-none">
-                                (Incl. GST)
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <MandatoryKitSection
+                    selectedKit={selectedKit}
+                    kitItems={kitItems}
+                    catalogItems={catalogItems}
+                    getInclusivePrice={getInclusivePrice}
+                    onItemClick={setSelectedDetailItem}
+                  />
                 )}
 
                 {/* Section B: Add-on items Catalog */}
-                <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-6">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
-                      {selectedKit ? "Section B: Optional Add-ons" : "Available Catalog Items"}
-                    </span>
-                    <h3 className="text-lg font-black text-gray-900 tracking-tight mt-2.5">
-                      {selectedKit ? "Add Additional Items" : "Browse & Add Items"}
-                    </h3>
-                    <p className="text-xs text-gray-400 font-semibold mt-1">
-                      {selectedKit 
-                        ? "Customize your bundle by adding extra drawing tools, bags, notebooks, or replacement items:"
-                        : "Choose the items you wish to purchase below:"}
-                    </p>
-                  </div>
-
-                  {/* Amazon-style unified Search & Category Selector Bar */}
-                  <div className="relative">
-                    <div className="flex bg-white border border-gray-200 rounded-2xl shadow-sm focus-within:ring-4 focus-within:ring-himgiri-primary/10 focus-within:border-himgiri-primary overflow-hidden transition-all h-14">
-                      {/* Left: Category Selector Dropdown */}
-                      <div className="bg-slate-50 border-r border-gray-200 flex items-center px-4 hover:bg-slate-100 transition-colors shrink-0 max-w-[150px] sm:max-w-[180px]">
-                        <select
-                          className="bg-transparent text-[11px] font-black uppercase tracking-wider text-gray-600 focus:outline-none cursor-pointer border-none py-1 w-full"
-                          value={selectedCategoryId}
-                          onChange={(e) => {
-                            setSelectedCategoryId(e.target.value);
-                            setPageNumber(1);
-                          }}
-                        >
-                          <option value="All">All Categories</option>
-                          {activeCategories.map(cat => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Middle: Input field */}
-                      <input
-                        type="text"
-                        placeholder="Search for textbooks, bags, stationery, journals..."
-                        className="flex-1 px-4 py-3 bg-transparent text-xs font-semibold focus:outline-none border-none text-gray-800 placeholder:text-gray-400"
-                        value={searchQuery}
-                        onFocus={() => setShowSuggestions(true)}
-                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                        onKeyDown={handleKeyDown}
-                        onChange={(e) => {
-                          setSearchQuery(e.target.value);
-                          setPageNumber(1);
-                        }}
-                      />
-
-                      {/* Right: Search icon button */}
-                      <button
-                        type="button"
-                        className="bg-slate-900 hover:bg-slate-800 text-white px-6 flex items-center justify-center transition-colors shrink-0"
-                      >
-                        <Search className="h-5 w-5" />
-                      </button>
-                    </div>
-
-                    {/* Autocomplete Suggestions Dropdown */}
-                    {showSuggestions && suggestions.length > 0 && (
-                      <div className="absolute z-20 left-0 right-0 top-full mt-1.5 bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-200">
-                        {suggestions.map((suggestion, idx) => {
-                          const isActive = idx === activeSuggestionIndex;
-                          return (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => {
-                                setSearchQuery(suggestion);
-                                setDebouncedSearchQuery(suggestion);
-                                setPageNumber(1);
-                                setShowSuggestions(false);
-                              }}
-                              className={clsx(
-                                "w-full text-left px-4 py-2.5 text-xs font-semibold hover:text-gray-950 transition-colors flex items-center gap-2 border-b border-slate-50 last:border-0",
-                                isActive ? "bg-slate-100 text-slate-900" : "text-gray-700 hover:bg-slate-50"
-                              )}
-                            >
-                              <Search className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                              <span className="truncate">{highlightMatch(suggestion, searchQuery)}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Items catalog grid */}
-                  {catalogLoading ? (
-                    <div className="flex items-center justify-center py-12 gap-3">
-                      <Loader2 className="h-5 w-5 text-himgiri-primary animate-spin" />
-                      <span className="text-xs font-bold text-gray-500 font-mono">Loading catalog items...</span>
-                    </div>
-                  ) : displayCatalogItems.length === 0 ? (
-                    <div className="p-8 text-center bg-slate-50 border border-dashed border-gray-250 rounded-2xl">
-                      <p className="text-gray-400 font-bold text-xs">No active shop items match your search or category filter.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {displayCatalogItems.map(item => (
-                        <div 
-                          key={item.id} 
-                          className="bg-white rounded-2xl border border-gray-150 p-4 hover:border-gray-300 hover:shadow-sm transition-all duration-300 flex flex-col justify-between gap-4"
-                        >
-                          <div className="space-y-3 cursor-pointer group" onClick={() => setSelectedDetailItem(item)}>
-                            <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 border border-gray-100 flex items-center justify-center">
-                              {item.imageUrl ? (
-                                <img 
-                                  src={item.imageUrl.split(',')[0]} 
-                                  alt={item.name} 
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <BookOpen className="h-10 w-10 text-slate-400" />
-                              )}
-                              
-                              <span className="absolute bottom-2 right-2 text-[8px] font-black bg-slate-900/75 text-white px-2 py-0.5 rounded-md uppercase tracking-wider backdrop-blur-sm">
-                                {item.categoryName}
-                              </span>
-                            </div>
-
-                            <div className="space-y-1">
-                              <h4 className="font-extrabold text-sm text-gray-900 line-clamp-1 leading-tight" title={item.name}>
-                                {item.name}
-                              </h4>
-                              {item.description ? (
-                                <p className="text-[11px] text-gray-400 font-semibold line-clamp-2 leading-snug">
-                                  {item.description}
-                                </p>
-                              ) : (
-                                <p className="text-[11px] text-gray-300 font-semibold italic">No description available</p>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="space-y-3 pt-2 border-t border-slate-100">
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                {(() => {
-                                  const sellingPriceWithGst = getInclusivePrice(item.price, item.categoryName);
-                                  return (
-                                    <div className="flex flex-col gap-0.5">
-                                      <div className="flex items-baseline gap-1.5">
-                                        <span className="font-mono font-black text-sm text-himgiri-primary">
-                                          ₹{sellingPriceWithGst.toFixed(2)}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
-                                          Incl. GST
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                })()}
-                                
-                                {item.storageStatus === 'InStock' && item.stockQty <= 0 && (
-                                  <span className="text-[9px] font-extrabold uppercase tracking-wider block text-red-500 font-black">
-                                    Out of Stock
-                                  </span>
-                                )}
-                                {item.storageStatus === 'PreOrder' && (
-                                  <span className="text-[9px] font-extrabold uppercase tracking-wider text-blue-500 block">
-                                    Pre-order Available
-                                  </span>
-                                )}
-                              </div>
-                              
-                              <div>
-                                {(addOnQuantities[item.id] || 0) > 0 ? (
-                                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl p-1 shadow-inner scale-95">
-                                    <button
-                                      type="button"
-                                      onClick={() => updateAddOnQty(item.id, -1, item)}
-                                      className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-gray-100 text-gray-700 active:scale-90 transition-all flex items-center justify-center font-black text-sm border border-gray-200"
-                                    >
-                                      -
-                                    </button>
-                                    <span className="w-5 text-center font-black text-xs text-gray-805">
-                                      {addOnQuantities[item.id]}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => updateAddOnQty(item.id, 1, item)}
-                                      disabled={item.storageStatus === 'InStock' && (addOnQuantities[item.id] || 0) >= item.stockQty}
-                                      className="h-7 w-7 rounded-lg bg-white shadow-sm hover:bg-gray-150 text-gray-800 active:scale-90 disabled:opacity-40 disabled:hover:bg-white disabled:active:scale-100 transition-all flex items-center justify-center font-black text-sm border border-gray-200"
-                                    >
-                                      +
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    disabled={item.storageStatus === 'InStock' && item.stockQty <= 0}
-                                    onClick={() => updateAddOnQty(item.id, 1, item)}
-                                    className={clsx(
-                                      "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 border shadow-sm",
-                                      item.storageStatus === 'InStock' && item.stockQty <= 0
-                                        ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
-                                        : "bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:border-blue-700"
-                                    )}
-                                  >
-                                    {item.storageStatus === 'InStock' && item.stockQty <= 0 ? "Sold Out" : "Add to Cart"}
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Numbered Pagination Controls */}
-                  {(() => {
-                    const meta = catalogRes?.meta;
-                    if (!meta || meta.totalPages <= 1) return null;
-                    return (
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-gray-100 mt-6">
-                        <span className="text-[11px] font-bold text-gray-500">
-                          Showing page <strong className="text-gray-800">{meta.currentPage}</strong> of <strong className="text-gray-800">{meta.totalPages}</strong> (Total <strong className="text-gray-800">{meta.totalRecords}</strong> items)
-                        </span>
-                        
-                        <div className="flex items-center gap-1.5">
-                          {/* Previous Button */}
-                          <button
-                            type="button"
-                            disabled={meta.currentPage === 1 || catalogLoading}
-                            onClick={() => setPageNumber(p => Math.max(1, p - 1))}
-                            className="px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-[10px] font-black hover:bg-gray-50 active:scale-95 disabled:opacity-40 disabled:hover:bg-white disabled:active:scale-100 transition-all shadow-sm flex items-center gap-1"
-                          >
-                            &lt; Prev
-                          </button>
-
-                          {/* Page Numbers */}
-                          {Array.from({ length: meta.totalPages }, (_, index) => {
-                            const pageIdx = index + 1;
-                            const isCurrent = pageIdx === meta.currentPage;
-                            return (
-                              <button
-                                key={pageIdx}
-                                type="button"
-                                disabled={catalogLoading}
-                                onClick={() => setPageNumber(pageIdx)}
-                                className={clsx(
-                                  "h-8 w-8 flex items-center justify-center rounded-xl text-[10px] font-black transition-all active:scale-95",
-                                  isCurrent
-                                    ? "bg-slate-900 border border-slate-900 text-white shadow-md shadow-slate-900/10"
-                                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-100"
-                                )}
-                              >
-                                {pageIdx}
-                              </button>
-                            );
-                          })}
-
-                          {/* Next Button */}
-                          <button
-                            type="button"
-                            disabled={meta.currentPage === meta.totalPages || catalogLoading}
-                            onClick={() => setPageNumber(p => Math.min(meta.totalPages, p + 1))}
-                            className="px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-[10px] font-black hover:bg-gray-50 active:scale-95 disabled:opacity-40 disabled:hover:bg-white disabled:active:scale-100 transition-all shadow-sm flex items-center gap-1"
-                          >
-                            Next &gt;
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
+                <CatalogSection
+                  selectedKit={selectedKit}
+                  activeCategories={activeCategories}
+                  selectedCategoryId={selectedCategoryId}
+                  onCategoryChange={handleCategoryChange}
+                  searchQuery={searchQuery}
+                  onSearchChange={handleSearchChange}
+                  onSuggestionSelect={handleSuggestionSelect}
+                  catalogLoading={catalogLoading}
+                  displayCatalogItems={displayCatalogItems}
+                  addOnQuantities={addOnQuantities}
+                  updateAddOnQty={updateAddOnQty}
+                  onItemClick={setSelectedDetailItem}
+                  getInclusivePrice={getInclusivePrice}
+                  meta={catalogRes?.meta}
+                  pageNumber={pageNumber}
+                  onPageChange={setPageNumber}
+                />
               </div>
 
               {/* Right Column: Checkout & Cart summary (4 Columns) */}
-              <div className="lg:col-span-4 space-y-6 sticky top-24">
-                
-                {/* Cart review */}
-                <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-4">
-                  <h4 className="text-sm font-black uppercase tracking-wider text-gray-800">
-                    Order Summary
-                  </h4>
-
-                  {cartItems.length === 0 ? (
-                    <div className="py-8 text-center text-gray-400 text-xs font-bold bg-slate-50 rounded-2xl border border-dashed border-gray-200">
-                      Cart is empty
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-gray-100 border border-gray-150 rounded-2xl overflow-hidden bg-slate-50/20 max-h-60 overflow-y-auto">
-                      {cartItems.map((item, idx) => (
-                        <div key={idx} className="p-3 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            {item.imageUrl ? (
-                              <img 
-                                src={item.imageUrl.split(',')[0]} 
-                                alt={item.itemName} 
-                                className="w-8 h-8 rounded-lg object-cover border border-gray-100 flex-shrink-0 bg-white"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-lg border border-gray-100 flex-shrink-0 bg-white flex items-center justify-center text-gray-400">
-                                <BookOpen className="h-4 w-4" />
-                              </div>
-                            )}
-                            
-                            <div className="space-y-0.5 min-w-0">
-                              <span className="font-bold text-xs text-gray-900 block truncate" title={item.itemName}>
-                                {item.itemName}
-                              </span>
-                              <span className="text-[8px] font-black uppercase bg-white border border-gray-200 text-gray-500 px-1 py-0.2 rounded">
-                                {item.categoryName}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            {item.isKitItem ? (
-                              <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
-                                {item.quantity} (Kit)
-                              </span>
-                            ) : (
-                              <div className="flex items-center bg-white border border-gray-200 rounded-lg p-0.5 scale-90 shadow-sm">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const catItem = catalogItems.find(i => i.id === item.itemId);
-                                    if (catItem) updateAddOnQty(item.itemId, -1, catItem);
-                                  }}
-                                  className="h-5 w-5 rounded bg-gray-55 text-gray-700 hover:bg-gray-100 active:scale-90 flex items-center justify-center font-bold text-[10px]"
-                                >
-                                  -
-                                </button>
-                                <span className="w-4 text-center font-black text-[10px] text-gray-800">
-                                  {item.quantity}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const catItem = catalogItems.find(i => i.id === item.itemId);
-                                    if (catItem) updateAddOnQty(item.itemId, 1, catItem);
-                                  }}
-                                  disabled={item.storageStatus === 'InStock' && (() => {
-                                    const catItem = catalogItems.find(i => i.id === item.itemId);
-                                    return catItem ? item.quantity >= catItem.stockQty : false;
-                                  })()}
-                                  className="h-5 w-5 rounded bg-gray-55 text-gray-700 hover:bg-gray-100 active:scale-90 disabled:opacity-40 disabled:hover:bg-white flex items-center justify-center font-bold text-[10px]"
-                                >
-                                  +
-                                </button>
-                              </div>
-                            )}
-
-                            <span className="font-mono font-black text-xs text-gray-800 w-14 text-right">
-                              ₹{(item.mrp * item.quantity).toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Delivery Option */}
-                <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-4">
-                  <h4 className="text-sm font-black uppercase tracking-wider text-gray-800">
-                    Delivery Method Selection
-                  </h4>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setIsHomeDelivery(true)}
-                      className={clsx(
-                        "p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all select-none",
-                        isHomeDelivery 
-                          ? "border-himgiri-primary bg-himgiri-primary/[0.03] ring-2 ring-himgiri-primary/10" 
-                          : "border-gray-200 hover:bg-gray-50/50"
-                      )}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <Truck className={clsx("h-5 w-5", isHomeDelivery ? "text-himgiri-primary" : "text-gray-400")} />
-                        {isHomeDelivery && <div className="h-4 w-4 bg-himgiri-primary rounded-full flex items-center justify-center text-white"><Check className="h-2.5 w-2.5" /></div>}
-                      </div>
-                      <div>
-                        <span className="font-bold text-xs text-gray-950 block">Home Delivery</span>
-                        <span className="text-[10px] text-gray-400 font-semibold">Free Delivery</span>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setIsHomeDelivery(false)}
-                      className={clsx(
-                        "p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all select-none",
-                        !isHomeDelivery 
-                          ? "border-himgiri-primary bg-himgiri-primary/[0.03] ring-2 ring-himgiri-primary/10" 
-                          : "border-gray-200 hover:bg-gray-50/50"
-                      )}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <School className={clsx("h-5 w-5", !isHomeDelivery ? "text-himgiri-primary" : "text-gray-400")} />
-                        {!isHomeDelivery && <div className="h-4 w-4 bg-himgiri-primary rounded-full flex items-center justify-center text-white"><Check className="h-2.5 w-2.5" /></div>}
-                      </div>
-                      <div>
-                        <span className="font-bold text-xs text-gray-950 block">Class Delivery</span>
-                        <span className="text-[10px] text-gray-400 font-semibold">Handover (Free)</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Form & Price summary */}
-                <form onSubmit={handlePlaceOrder} className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-4">
-                  <h4 className="text-sm font-black uppercase tracking-wider text-gray-800">
-                    Customer & Delivery Details
-                  </h4>
-
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="relative">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <input
-                          type="text"
-                          required
-                          placeholder="First Name *"
-                          className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="relative">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <input
-                          type="text"
-                          required
-                          placeholder="Last Name *"
-                          className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="relative">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <input
-                          type="text"
-                          required
-                          placeholder="Contact Number *"
-                          className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                          value={mobile}
-                          onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                        />
-                      </div>
-
-                      <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <input
-                          type="email"
-                          required
-                          placeholder="Parent Email *"
-                          className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="relative">
-                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Address Line 1 *"
-                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                        value={addressLine1}
-                        onChange={(e) => setAddressLine1(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        placeholder="Address Line 2 (Optional)"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                        value={addressLine2}
-                        onChange={(e) => setAddressLine2(e.target.value)}
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="City *"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <select
-                          required
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all cursor-pointer"
-                          value={customerStateId}
-                          onChange={(e) => setCustomerStateId(e.target.value)}
-                        >
-                          <option value="" disabled>Select State *</option>
-                          {states.map(state => (
-                            <option key={state.id} value={state.id}>
-                              {state.stateName}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Pincode (6 digits) *"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all"
-                        value={pincode}
-                        onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      />
-                    </div>
-
-                    {/* Delivery Map Picker */}
-                    {isHomeDelivery && (
-                      <div className="pt-1">
-                        {!showMap ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowMap(true)}
-                            className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-98 border border-slate-200 shadow-sm"
-                          >
-                            <MapPin className="h-4 w-4 text-slate-600 animate-pulse" />
-                            <span>Select Delivery Location on Map</span>
-                          </button>
-                        ) : (
-                          <div className="space-y-3 p-3.5 bg-slate-50 border border-slate-150 rounded-2xl animate-in slide-in-from-top-2 duration-200">
-                            {/* Search form */}
-                            <form onSubmit={handleMapSearch} className="flex gap-2">
-                              <input
-                                type="text"
-                                placeholder="Search society, colony, or landmark..."
-                                className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-500 shadow-sm"
-                                value={mapSearchVal}
-                                onChange={(e) => setMapSearchVal(e.target.value)}
-                              />
-                              <button
-                                type="submit"
-                                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 shadow-sm"
-                              >
-                                Search
-                              </button>
-                            </form>
-
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider">
-                                Or drag pin directly on map:
-                              </span>
-                              <div className="flex gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={handleDetectLocation}
-                                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-sm"
-                                >
-                                  Detect Me
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setShowMap(false);
-                                    setMapLocation(null);
-                                  }}
-                                  className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all active:scale-95"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                            
-                            <div id="delivery-map" className="w-full h-44 rounded-xl border border-slate-200 bg-white overflow-hidden shadow-inner relative z-10" />
-                            
-                            {mapLocation && (
-                              <div className="flex items-center justify-between text-[9px] text-slate-450 font-mono font-bold mt-1">
-                                <span>GPS: {mapLocation.lat}, {mapLocation.lng}</span>
-                                <span className="text-green-600 font-bold uppercase tracking-wider">📍 Pin Selected</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Price Summary */}
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-semibold space-y-2 mt-4">
-                    <div className="flex justify-between text-gray-500">
-                      <span>Items Total (Incl. GST)</span>
-                      <span className="font-mono">₹{itemsTotal.toFixed(2)}</span>
-                    </div>
-                    
-
-
-                    <div className="flex justify-between text-sm font-black text-gray-900 border-t border-gray-200/50 pt-2 mt-2">
-                      <span>Grand Total</span>
-                      <span className="font-mono text-base text-himgiri-primary">₹{grandTotal.toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isPlacingOrder || cartItems.length === 0}
-                    className="w-full mt-2 py-4 rounded-2xl bg-himgiri-primary text-white font-extrabold hover:bg-blue-700 disabled:opacity-45 disabled:hover:bg-himgiri-primary disabled:active:scale-100 transition-all active:scale-98 shadow-lg shadow-himgiri-primary/20 flex items-center justify-center gap-2"
-                  >
-                    {isPlacingOrder ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Generating Invoice...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Proceed to Secure Checkout</span>
-                        <ChevronRight className="h-4 w-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-              </div>
+              <CheckoutSidebar
+                cartItems={cartItems}
+                catalogItems={catalogItems}
+                updateAddOnQty={updateAddOnQty}
+                isHomeDelivery={isHomeDelivery}
+                onSetHomeDelivery={setIsHomeDelivery}
+                firstName={firstName}
+                onFirstNameChange={setFirstName}
+                lastName={lastName}
+                onLastNameChange={setLastName}
+                mobile={mobile}
+                onMobileChange={setMobile}
+                email={email}
+                onEmailChange={setEmail}
+                addressLine1={addressLine1}
+                onAddressLine1Change={setAddressLine1}
+                addressLine2={addressLine2}
+                onAddressLine2Change={setAddressLine2}
+                city={city}
+                onCityChange={setCity}
+                customerStateId={customerStateId}
+                onCustomerStateIdChange={setCustomerStateId}
+                states={states}
+                pincode={pincode}
+                onPincodeChange={setPincode}
+                mapLocation={mapLocation}
+                onLocationChange={setMapLocation}
+                onAddressAutofill={handleAddressAutofill}
+                itemsTotal={itemsTotal}
+                grandTotal={grandTotal}
+                isPlacingOrder={isPlacingOrder}
+                onSubmit={handlePlaceOrder}
+              />
             </div>
           </div>
         )}
       </main>
 
       {/* Product Details Modal (Popup) */}
-      {selectedDetailItem && (() => {
-        const detailImages = selectedDetailItem.imageUrl 
-          ? selectedDetailItem.imageUrl.split(',').filter((u: string) => u.trim() !== '') 
-          : [];
-        const isItemInSelectedKit = !!(selectedKit && selectedKit.items.some((ki: any) => ki.itemId === selectedDetailItem.id));
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div 
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-250 cursor-pointer" 
-              onClick={() => setSelectedDetailItem(null)} 
-            />
-            
-            <div className="relative bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row border border-slate-100 animate-in zoom-in-95 duration-200">
-              {/* Close Button */}
-              <button 
-                onClick={() => setSelectedDetailItem(null)} 
-                className="absolute top-4 right-4 z-10 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full p-2.5 hover:rotate-90 transition-all focus:outline-none shadow-sm"
-              >
-                <X className="h-4.5 w-4.5" />
-              </button>
-
-              {/* Left Column: Image Gallery (Carousel) */}
-              <div className="w-full md:w-1/2 p-6 flex flex-col justify-center items-center border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50/40">
-                <div className="w-full flex flex-col justify-center items-center gap-4">
-                  {/* Large Main Display Image */}
-                  <div className="relative aspect-square w-full max-w-[280px] rounded-2xl overflow-hidden bg-white border border-slate-150 flex items-center justify-center shadow-soft">
-                    {detailImages.length > 0 ? (
-                      <img 
-                        src={detailImages[activeImageIndex]} 
-                        alt={selectedDetailItem.name} 
-                        className="w-full h-full object-contain p-3"
-                      />
-                    ) : (
-                      <BookOpen className="h-16 w-16 text-slate-300" />
-                    )}
-
-                    <span className="absolute top-3 left-3 text-[8px] font-black bg-slate-900/80 text-white px-2 py-0.5 rounded-md uppercase tracking-wider backdrop-blur-sm">
-                      {selectedDetailItem.categoryName}
-                    </span>
-                  </div>
-
-                  {/* Thumbnail Previews List */}
-                  {detailImages.length > 1 && (
-                    <div className="flex flex-wrap gap-2 justify-center max-h-16 overflow-y-auto py-1">
-                      {detailImages.map((url: string, index: number) => (
-                        <button
-                          key={index}
-                          onClick={() => setActiveImageIndex(index)}
-                          className={clsx(
-                            "w-12 h-12 rounded-xl border overflow-hidden bg-white p-1 hover:border-blue-500 transition-all focus:outline-none flex-shrink-0 flex items-center justify-center",
-                            activeImageIndex === index ? "border-blue-600 ring-4 ring-blue-500/10 shadow-sm" : "border-slate-200"
-                          )}
-                        >
-                          <img 
-                            src={url} 
-                            alt={`Thumbnail ${index + 1}`} 
-                            className="w-full h-full object-contain"
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column: Information & Cart Actions */}
-              <div className="w-full md:w-1/2 p-6 flex flex-col justify-between max-h-[45vh] md:max-h-none overflow-y-auto">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900 leading-tight">
-                      {selectedDetailItem.name}
-                    </h3>
-                    <p className="text-[9px] text-blue-600 font-extrabold uppercase mt-1.5 tracking-wider bg-blue-50 px-2 py-0.5 rounded-md inline-block">
-                      {selectedDetailItem.unit || 'Pieces (Pcs)'}
-                    </p>
-                  </div>
-
-                  {/* Pricing Details */}
-                  {(() => {
-                    const gstPercent = getGstPercentByName(selectedDetailItem.categoryName);
-                    const sellingPriceWithGst = getInclusivePrice(selectedDetailItem.price, selectedDetailItem.categoryName);
-                    return (
-                      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2.5">
-                        <div className="flex justify-between items-baseline">
-                          <div>
-                            <span className="text-[10px] text-gray-450 block font-semibold mb-0.5">Selling Price (incl. GST)</span>
-                            <span className="font-mono font-black text-xl text-himgiri-primary">
-                              ₹{sellingPriceWithGst.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="border-t border-slate-200/50 pt-2 flex justify-between text-[10px] font-semibold text-slate-500">
-                          <span>Base Price: <strong className="font-mono text-slate-700">₹{selectedDetailItem.price.toFixed(2)}</strong></span>
-                          <span>GST ({gstPercent}%): <strong className="font-mono text-slate-700">₹{(sellingPriceWithGst - selectedDetailItem.price).toFixed(2)}</strong></span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Description */}
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Product Details</span>
-                    {selectedDetailItem.description ? (
-                      <p className="text-xs text-slate-600 leading-relaxed max-h-32 overflow-y-auto pr-1">
-                        {selectedDetailItem.description}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-slate-450 italic">No detailed description provided for this item.</p>
-                    )}
-                  </div>
-
-                  {/* Availability / Stock Status */}
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="text-slate-400 font-black uppercase tracking-wider">Availability:</span>
-                    <div>
-                      {selectedDetailItem.storageStatus === 'InStock' ? (
-                        selectedDetailItem.stockQty > 0 ? (
-                          <span className="bg-green-50 text-green-700 font-bold px-2 py-0.5 rounded">
-                            In Stock
-                          </span>
-                        ) : (
-                          <span className="bg-red-50 text-red-700 font-bold px-2 py-0.5 rounded">
-                            Out of Stock
-                          </span>
-                        )
-                      ) : (
-                        <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded">
-                          Pre-order (Dispatched in 2-3 Days)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* School Kit Inclusion Banner */}
-                  {isItemInSelectedKit && (
-                    <div className="bg-blue-50/70 border border-blue-150 rounded-2xl p-3.5 flex items-start gap-2.5 text-[11px] text-blue-800 animate-in fade-in duration-200">
-                      <Sparkles className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <span className="font-extrabold text-blue-900 block mb-0.5">Included in Selected Kit</span>
-                        This item is already included in your selected <span className="font-extrabold text-blue-900">{selectedKit?.name}</span>. You only need to add it here if you want to buy an <span className="font-bold underline">additional</span> copy.
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Cart Action Buttons */}
-                <div className="pt-6 border-t border-slate-100 mt-6 flex items-center justify-between gap-4">
-                  <div className="text-slate-400 font-black uppercase text-[10px] tracking-wider">
-                    Add to Cart
-                  </div>
-
-                  {(addOnQuantities[selectedDetailItem.id] || 0) > 0 ? (
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl p-1 shadow-inner">
-                        <button
-                          type="button"
-                          onClick={() => updateAddOnQty(selectedDetailItem.id, -1, selectedDetailItem)}
-                          className="h-8 w-8 rounded-lg bg-white shadow-sm hover:bg-gray-100 text-gray-700 active:scale-95 transition-all flex items-center justify-center font-black text-sm border border-gray-200"
-                        >
-                          -
-                        </button>
-                        <span className="font-mono font-black text-slate-900 text-sm min-w-4 text-center">
-                          {addOnQuantities[selectedDetailItem.id]}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => updateAddOnQty(selectedDetailItem.id, 1, selectedDetailItem)}
-                          disabled={selectedDetailItem.storageStatus === 'InStock' && (addOnQuantities[selectedDetailItem.id] || 0) >= selectedDetailItem.stockQty}
-                          className="h-8 w-8 rounded-lg bg-white shadow-sm hover:bg-gray-100 text-gray-700 active:scale-95 transition-all flex items-center justify-center font-black text-sm border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          +
-                        </button>
-                      </div>
-                      {isItemInSelectedKit && (
-                        <span className="text-[10px] text-gray-400 font-bold mt-0.5">
-                          (1 in Kit + {addOnQuantities[selectedDetailItem.id]} extra)
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={selectedDetailItem.storageStatus === 'InStock' && selectedDetailItem.stockQty <= 0}
-                      onClick={() => updateAddOnQty(selectedDetailItem.id, 1, selectedDetailItem)}
-                      className="px-5 py-2.5 bg-himgiri-primary hover:bg-blue-700 text-white font-extrabold text-[11px] rounded-xl shadow-md shadow-blue-100 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {selectedDetailItem.storageStatus === 'InStock' && selectedDetailItem.stockQty <= 0 
-                        ? 'Sold Out' 
-                        : (isItemInSelectedKit ? 'Add Extra Copy' : 'Add To Cart')}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      <ItemDetailModal
+        item={selectedDetailItem}
+        onClose={() => setSelectedDetailItem(null)}
+        activeImageIndex={activeImageIndex}
+        onImageIndexChange={setActiveImageIndex}
+        selectedKit={selectedKit}
+        addOnQuantities={addOnQuantities}
+        updateAddOnQty={updateAddOnQty}
+        getGstPercentByName={getGstPercentByName}
+        getInclusivePrice={getInclusivePrice}
+      />
 
       {/* Pre-Checkout Invoice Confirmation Modal */}
-      {showCheckoutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div 
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-250 cursor-pointer" 
-            onClick={() => setShowCheckoutModal(false)} 
-          />
-          
-          <div className="relative bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 animate-in zoom-in-95 duration-200 z-10">
-            {/* Header */}
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-black text-gray-900 tracking-tight">Confirm Order & Invoice Preview</h3>
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-0.5">Please review your invoice details before payment</p>
-              </div>
-              <button 
-                onClick={() => setShowCheckoutModal(false)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full p-2 hover:rotate-90 transition-all focus:outline-none"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 p-6 overflow-y-auto space-y-6">
-              
-              {/* Delivery & Student Summary */}
-              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 text-xs font-semibold text-gray-700 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">Customer Details</span>
-                  <div className="text-gray-900 font-black text-sm">{firstName} {lastName}</div>
-                  <div>Email: {email}</div>
-                  <div>Mobile: {mobile}</div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">Delivery & Handover</span>
-                  <div>
-                    {isHomeDelivery ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-orange-600 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full">🏠 Home Delivery</span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-teal-600 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full">🏫 Class Delivery</span>
-                    )}
-                  </div>
-                  <div className="text-gray-900 font-bold mt-1">{addressLine1}</div>
-                  {addressLine2 && <div className="text-gray-500">{addressLine2}</div>}
-                  <div>{city} - {pincode} ({selectedStateName})</div>
-                </div>
-              </div>
-
-              {/* Invoice Breakdown */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Itemized Charges</h4>
-                <div className="border border-slate-150 rounded-2xl overflow-hidden">
-                  <table className="min-w-full divide-y divide-slate-150">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th className="px-4 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-wider">Item</th>
-                        <th className="px-4 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-wider">Type</th>
-                        <th className="px-4 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-wider">Qty</th>
-                        <th className="px-4 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-wider">Base Price</th>
-                        <th className="px-4 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-wider">GST</th>
-                        <th className="px-4 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-wider">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-xs font-semibold text-gray-700 bg-white">
-                      {cartItems.map((item, idx) => {
-                        const gstPercent = getGstPercentByName(item.categoryName);
-                        const baseTotal = item.price * item.quantity;
-                        const taxTotal = baseTotal * (gstPercent / 100);
-                        const lineTotal = baseTotal + taxTotal;
-                        return (
-                          <tr key={idx}>
-                            <td className="px-4 py-3 font-bold text-gray-900">{item.itemName}</td>
-                            <td className="px-4 py-3">
-                              {item.isKitItem ? (
-                                <Badge variant="info" className="text-[9px] font-bold px-1.5 py-0.5 rounded animate-none">Kit</Badge>
-                              ) : (
-                                <Badge variant="gray" className="text-[9px] font-bold px-1.5 py-0.5 rounded animate-none">Extra</Badge>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center font-bold text-gray-900">{item.quantity}</td>
-                            <td className="px-4 py-3 text-right font-mono">₹{item.price.toFixed(2)}</td>
-                            <td className="px-4 py-3 text-right text-gray-500 font-mono">
-                              ₹{taxTotal.toFixed(2)} 
-                              <span className="text-[9px] block text-gray-400">({gstPercent}%)</span>
-                            </td>
-                            <td className="px-4 py-3 text-right font-bold text-gray-900 font-mono">₹{lineTotal.toFixed(2)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Financial Totals */}
-              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 flex justify-end">
-                <div className="w-full sm:w-64 space-y-2 text-xs font-bold text-gray-600">
-                  <div className="flex justify-between">
-                    <span>Subtotal (Excl. GST)</span>
-                    <span className="text-gray-900 font-mono">₹{subTotal.toFixed(2)}</span>
-                  </div>
-                  {isIntraState ? (
-                    <>
-                      <div className="flex justify-between">
-                        <span>CGST (Central Tax)</span>
-                        <span className="text-gray-900 font-mono">₹{cgstAmount.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>SGST (State Tax)</span>
-                        <span className="text-gray-900 font-mono">₹{sgstAmount.toFixed(2)}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex justify-between">
-                      <span>IGST (Integrated Tax)</span>
-                      <span className="text-gray-900 font-mono">₹{igstAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span>Delivery Charges</span>
-                    <span className="text-green-600 font-bold uppercase">Free</span>
-                  </div>
-                  <div className="flex justify-between border-t border-slate-200 pt-2 text-sm font-black">
-                    <span className="uppercase tracking-tight text-gray-900">Total Payable</span>
-                    <span className="font-mono text-base text-himgiri-primary">₹{grandTotal.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Footer Actions */}
-            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row gap-3 justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="md"
-                onClick={() => setShowCheckoutModal(false)}
-                className="rounded-2xl font-bold border-gray-250"
-              >
-                Back to Edit
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                size="md"
-                onClick={executeOrderPlacement}
-                className="rounded-2xl font-black px-6 shadow-md shadow-himgiri-primary/20"
-              >
-                Confirm & Pay ₹{grandTotal.toFixed(2)}
-              </Button>
-            </div>
-
-          </div>
-        </div>
-      )}
+      <CheckoutConfirmationModal
+        isOpen={showCheckoutModal}
+        onClose={() => setShowCheckoutModal(false)}
+        firstName={firstName}
+        lastName={lastName}
+        email={email}
+        mobile={mobile}
+        isHomeDelivery={isHomeDelivery}
+        addressLine1={addressLine1}
+        addressLine2={addressLine2}
+        city={city}
+        pincode={pincode}
+        selectedStateName={selectedStateName}
+        cartItems={cartItems}
+        getGstPercentByName={getGstPercentByName}
+        subTotal={subTotal}
+        isIntraState={isIntraState}
+        cgstAmount={cgstAmount}
+        sgstAmount={sgstAmount}
+        igstAmount={igstAmount}
+        grandTotal={grandTotal}
+        onConfirm={executeOrderPlacement}
+      />
 
       {/* Lookup & Tracking Sliding Drawer */}
-      {showLookupPanel && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Overlay */}
-          <div 
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
-            onClick={() => {
-              setShowLookupPanel(false);
-              setLookupResults([]);
-            }}
-          />
-
-          {/* Drawer Body */}
-          <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col p-6 border-l border-slate-100 animate-in slide-in-from-right duration-250 z-10">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="text-lg font-black text-gray-950">Track My Order</h3>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Search for invoices & delivery statuses</p>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowLookupPanel(false);
-                  setLookupResults([]);
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full p-2.5 hover:rotate-90 transition-all focus:outline-none"
-              >
-                <X className="h-4.5 w-4.5" />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleLookupSearch} className="space-y-4 mb-6">
-              <div>
-                <label className="text-[10px] text-gray-400 font-black uppercase tracking-wider block mb-1">Mobile Number</label>
-                <input 
-                  type="text" 
-                  placeholder="Enter 10-digit number"
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
-                  value={lookupMobile}
-                  onChange={(e) => setLookupMobile(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-gray-400 font-black uppercase tracking-wider block mb-1">Billing Pincode</label>
-                <input 
-                  type="text" 
-                  placeholder="Enter 6-digit Pincode"
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-150 rounded-2xl text-xs font-semibold focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
-                  value={lookupPincode}
-                  onChange={(e) => setLookupPincode(e.target.value)}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isSearchingLookup}
-                className="w-full py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-1.5 active:scale-98"
-              >
-                {isSearchingLookup ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Searching...</span>
-                  </>
-                ) : (
-                  <span>Track & View Invoices</span>
-                )}
-              </button>
-            </form>
-
-            {/* Results */}
-            <div className="flex-1 overflow-y-auto space-y-4">
-              <div className="text-[10px] text-gray-400 font-black uppercase tracking-wider mb-2">Search Results</div>
-              
-              {lookupResults.length === 0 ? (
-                <div className="text-center py-10 text-gray-400 text-xs font-bold">
-                  Enter details above to fetch your order status.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {lookupResults.map((order, idx) => (
-                    <div key={idx} className="p-4 border border-slate-150 rounded-2xl space-y-3 bg-slate-50/40">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-[9px] text-slate-400 font-black font-mono block">
-                            {new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </span>
-                          <span className="text-xs font-black text-gray-900">{order.invoiceNumber}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[9px] text-gray-400 font-bold block">Total Paid</span>
-                          <span className="text-xs font-black font-mono text-gray-900">₹{order.grandTotal.toFixed(2)}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded-md bg-slate-100 text-slate-700">
-                          {order.status}
-                        </span>
-                        <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-md ${
-                          order.paymentStatus.toLowerCase() === 'success' || order.paymentStatus.toLowerCase() === 'paid'
-                            ? 'bg-green-50 text-green-700 border border-green-150' 
-                            : 'bg-orange-50 text-orange-700 border border-orange-150'
-                        }`}>
-                          {order.paymentStatus}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadLookupInvoice(order.id, order.invoiceNumber)}
-                        className="w-full py-2 bg-blue-50 border border-blue-100 hover:bg-blue-100 text-blue-700 font-extrabold text-[10px] rounded-xl tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 active:scale-98"
-                      >
-                        <CreditCard className="h-3.5 w-3.5" />
-                        <span>Download Invoice</span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <OrderLookupDrawer
+        isOpen={showLookupPanel}
+        onClose={() => {
+          setShowLookupPanel(false);
+          setLookupResults([]);
+        }}
+        lookupMobile={lookupMobile}
+        onLookupMobileChange={setLookupMobile}
+        lookupPincode={lookupPincode}
+        onLookupPincodeChange={setLookupPincode}
+        onSubmit={handleLookupSearch}
+        isSearchingLookup={isSearchingLookup}
+        lookupResults={lookupResults}
+        onDownloadInvoice={handleDownloadLookupInvoice}
+      />
     </div>
   );
 }
