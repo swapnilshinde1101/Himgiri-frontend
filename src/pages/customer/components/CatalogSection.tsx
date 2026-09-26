@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Loader2, BookOpen } from 'lucide-react';
+import { Search, BookOpen, Flame } from 'lucide-react';
 import { clsx } from 'clsx';
 import { catalogService } from '../../../services/catalogService';
 import type { SchoolKit, Item, CategoryDto, Meta } from '../../../types';
@@ -194,9 +194,21 @@ export default function CatalogSection({
 
       {/* Items catalog grid */}
       {catalogLoading ? (
-        <div className="flex items-center justify-center py-12 gap-3">
-          <Loader2 className="h-5 w-5 text-himgiri-primary animate-spin" />
-          <span className="text-xs font-bold text-gray-500 font-mono">Loading catalog items...</span>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div key={idx} className="rounded-2xl border border-gray-150 p-4 space-y-3 animate-pulse">
+              <div className="aspect-square w-full rounded-xl bg-slate-100" />
+              <div className="space-y-2">
+                <div className="h-3.5 w-4/5 rounded-full bg-slate-100" />
+                <div className="h-3 w-full rounded-full bg-slate-100" />
+                <div className="h-3 w-2/3 rounded-full bg-slate-100" />
+              </div>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                <div className="h-4 w-14 rounded-full bg-slate-100" />
+                <div className="h-7 w-16 rounded-xl bg-slate-100" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : displayCatalogItems.length === 0 ? (
         <div className="p-8 text-center bg-slate-50 border border-dashed border-gray-250 rounded-2xl">
@@ -215,7 +227,10 @@ export default function CatalogSection({
                     <img
                       src={item.imageUrl.split(',')[0]}
                       alt={item.name}
-                      className="w-full h-full object-cover"
+                      className={clsx(
+                        "w-full h-full object-cover transition-all",
+                        item.storageStatus === 'InStock' && item.stockQty <= 0 && "grayscale opacity-50"
+                      )}
                     />
                   ) : (
                     <BookOpen className="h-10 w-10 text-slate-400" />
@@ -264,6 +279,12 @@ export default function CatalogSection({
                     {item.storageStatus === 'InStock' && item.stockQty <= 0 && (
                       <span className="text-[9px] font-extrabold uppercase tracking-wider block text-red-500 font-black">
                         Out of Stock
+                      </span>
+                    )}
+                    {item.storageStatus === 'InStock' && item.stockQty > 0 && item.stockQty <= 5 && (
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-1 text-orange-600">
+                        <Flame className="h-2.5 w-2.5" />
+                        Only {item.stockQty} left
                       </span>
                     )}
                     {item.storageStatus === 'PreOrder' && (

@@ -13,6 +13,8 @@ export default function WelcomeScreen({ gradesLoading, activeGrades, onSelectGra
       {/* Hero Banner */}
       <div className="relative overflow-hidden bg-gradient-to-r from-himgiri-primary to-blue-700 text-white rounded-3xl p-8 lg:p-12 shadow-lg shadow-himgiri-primary/10">
         <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute left-0 bottom-0 -translate-x-16 translate-y-16 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
+        <GraduationCap className="hidden sm:block absolute -right-6 -bottom-10 h-56 w-56 text-white/[0.07] rotate-[-12deg] pointer-events-none" />
         <div className="relative max-w-2xl space-y-3">
           <span className="text-xs font-black uppercase tracking-widest bg-white/20 px-3 py-1.5 rounded-full inline-flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5" /> Academic Session 2026-27

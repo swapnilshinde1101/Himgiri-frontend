@@ -1,4 +1,4 @@
-import { X, BookOpen, Sparkles } from 'lucide-react';
+import { X, BookOpen, Sparkles, Flame } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { SchoolKit } from '../../../types';
 import type { StockAdjustableItem } from '../CustomerHome';
@@ -143,7 +143,7 @@ export default function ItemDetailModal({
             {/* Availability / Stock Status */}
             <div className="flex items-center gap-4 text-xs">
               <span className="text-slate-400 font-black uppercase tracking-wider">Availability:</span>
-              <div>
+              <div className="flex items-center gap-2">
                 {item.storageStatus === 'InStock' ? (
                   item.stockQty > 0 ? (
                     <span className="bg-green-50 text-green-700 font-bold px-2 py-0.5 rounded">
@@ -157,6 +157,12 @@ export default function ItemDetailModal({
                 ) : (
                   <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded">
                     Pre-order (Dispatched in 2-3 Days)
+                  </span>
+                )}
+                {item.storageStatus === 'InStock' && item.stockQty > 0 && item.stockQty <= 5 && (
+                  <span className="flex items-center gap-1 bg-orange-50 text-orange-600 font-bold px-2 py-0.5 rounded">
+                    <Flame className="h-3 w-3" />
+                    Only {item.stockQty} left
                   </span>
                 )}
               </div>

@@ -20,6 +20,7 @@ import CheckoutSidebar from './components/CheckoutSidebar';
 import ItemDetailModal from './components/ItemDetailModal';
 import CheckoutConfirmationModal from './components/CheckoutConfirmationModal';
 import OrderLookupDrawer from './components/OrderLookupDrawer';
+import StickyCartBar from './components/StickyCartBar';
 
 export interface CartDisplayItem {
   itemId: string;
@@ -617,6 +618,7 @@ export default function CustomerHome() {
                 cartItems={cartItems}
                 catalogItems={catalogItems}
                 updateAddOnQty={updateAddOnQty}
+                getInclusivePrice={getInclusivePrice}
                 isHomeDelivery={isHomeDelivery}
                 onSetHomeDelivery={setIsHomeDelivery}
                 firstName={firstName}
@@ -647,6 +649,12 @@ export default function CustomerHome() {
                 onSubmit={handlePlaceOrder}
               />
             </div>
+
+            <StickyCartBar
+              itemCount={cartItems.length}
+              grandTotal={grandTotal}
+              onViewCart={() => document.getElementById('checkout-sidebar')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            />
           </div>
         )}
       </main>

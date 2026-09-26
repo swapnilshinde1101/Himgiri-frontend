@@ -74,8 +74,9 @@ export const orderService = {
     return data;
   },
 
-  downloadInvoice: async (id: string, invoiceNumber: string, mobile?: string, pincode?: string): Promise<void> => {
+  downloadInvoice: async (id: string, invoiceNumber: string, mobile?: string | null, pincode?: string | null, token?: string | null): Promise<void> => {
     const params = new URLSearchParams();
+    if (token) params.append('token', token);
     if (mobile) params.append('mobile', mobile);
     if (pincode) params.append('pincode', pincode);
 

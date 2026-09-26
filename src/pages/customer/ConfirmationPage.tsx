@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { orderService } from '../../services/orderService';
 import toast from 'react-hot-toast';
 import { ShoppingBag, Loader2, CreditCard } from 'lucide-react';
+import OrderProgressTracker from './components/OrderProgressTracker';
 
 export default function ConfirmationPage() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -71,7 +72,7 @@ export default function ConfirmationPage() {
     if (!order) return;
     setIsDownloadingInvoice(true);
     try {
-      await orderService.downloadInvoice(order.id, order.invoiceNumber, order.mobile, order.pincode);
+      await orderService.downloadInvoice(order.id, order.invoiceNumber, order.mobile, order.pincode, token);
       toast.success('Invoice PDF downloaded successfully!');
     } catch (err: any) {
       toast.error('Failed to download invoice.');
@@ -144,6 +145,11 @@ export default function ConfirmationPage() {
           <p className="text-gray-500 text-sm">
             Invoice: <span className="font-bold text-gray-900">{order.invoiceNumber}</span>
           </p>
+        </div>
+
+        {/* Order progress */}
+        <div className="bg-slate-50/60 rounded-2xl p-4 pt-5">
+          <OrderProgressTracker status={order.status} />
         </div>
 
         {/* Items list */}

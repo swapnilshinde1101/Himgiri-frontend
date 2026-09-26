@@ -1,4 +1,4 @@
-import { Truck, School, Check, User, Phone, Mail, MapPin, Loader2, ChevronRight, BookOpen } from 'lucide-react';
+import { Truck, School, Check, User, Phone, Mail, MapPin, Loader2, ChevronRight, BookOpen, ShieldCheck } from 'lucide-react';
 import { clsx } from 'clsx';
 import DeliveryMapPicker from './DeliveryMapPicker';
 import type { Item, StateDto } from '../../../types';
@@ -34,6 +34,7 @@ interface Props {
   onAddressAutofill: (fields: { city?: string; pincode?: string; addressLine1?: string }) => void;
   itemsTotal: number;
   grandTotal: number;
+  getInclusivePrice?: (price: number, categoryName: string) => number;
   isPlacingOrder: boolean;
   onSubmit: (e: React.FormEvent) => void;
 }
@@ -42,6 +43,7 @@ export default function CheckoutSidebar({
   cartItems,
   catalogItems,
   updateAddOnQty,
+  getInclusivePrice,
   isHomeDelivery,
   onSetHomeDelivery,
   firstName,
@@ -72,7 +74,7 @@ export default function CheckoutSidebar({
   onSubmit
 }: Props) {
   return (
-    <div className="lg:col-span-4 space-y-6 sticky top-24">
+    <div id="checkout-sidebar" className="lg:col-span-4 space-y-6 sticky top-24">
 
       {/* Cart review */}
       <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-soft space-y-4">
@@ -148,9 +150,14 @@ export default function CheckoutSidebar({
                     </div>
                   )}
 
-                  <span className="font-mono font-black text-xs text-gray-800 w-14 text-right">
-                    ₹{(item.mrp * item.quantity).toFixed(2)}
-                  </span>
+                  {(() => {
+                    const itemPriceWithGst = getInclusivePrice ? getInclusivePrice(item.price, item.categoryName) : item.price;
+                    return (
+                      <span className="font-mono font-black text-xs text-gray-800 min-w-16 text-right">
+                        ₹{(itemPriceWithGst * item.quantity).toFixed(2)}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             ))}
@@ -363,6 +370,11 @@ export default function CheckoutSidebar({
             </>
           )}
         </button>
+
+        <p className="flex items-center justify-center gap-1.5 text-[10px] text-gray-400 font-semibold">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+          Secure payment · Your details are encrypted
+        </p>
       </form>
     </div>
   );
