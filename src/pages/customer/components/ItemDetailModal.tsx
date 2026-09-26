@@ -1,6 +1,7 @@
 import { X, BookOpen, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { SchoolKit } from '../../../types';
+import type { StockAdjustableItem } from '../CustomerHome';
 
 interface Props {
   item: any | null;
@@ -9,7 +10,7 @@ interface Props {
   onImageIndexChange: (index: number) => void;
   selectedKit: SchoolKit | null;
   addOnQuantities: Record<string, number>;
-  updateAddOnQty: (itemId: string, delta: number, item: any) => void;
+  updateAddOnQty: (itemId: string, delta: number, item: StockAdjustableItem) => void;
   getGstPercentByName: (categoryName: string) => number;
   getInclusivePrice: (price: number, categoryName: string) => number;
 }

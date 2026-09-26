@@ -34,6 +34,15 @@ export interface CartDisplayItem {
   isKitItem: boolean;
 }
 
+// The minimal shape updateAddOnQty actually needs to enforce its stock cap — deliberately
+// narrower than the full Item type so it also accepts the kit-item detail object
+// (which isn't a real catalog Item) without needing an `any` escape hatch.
+export interface StockAdjustableItem {
+  storageStatus: 'InStock' | 'PreOrder';
+  stockQty: number;
+  unit: string;
+}
+
 export default function CustomerHome() {
   // ── States ──
   // selectedGradeId can be:
@@ -203,7 +212,7 @@ export default function CustomerHome() {
     setCatalogItems([]);
   };
 
-  const updateAddOnQty = (itemId: string, delta: number, item: any) => {
+  const updateAddOnQty = (itemId: string, delta: number, item: StockAdjustableItem) => {
     const currentQty = addOnQuantities[itemId] || 0;
     const newQty = currentQty + delta;
     if (newQty < 0) return;

@@ -109,7 +109,7 @@ export default function OrderLookupDrawer({
                     </div>
                     <div className="text-right">
                       <span className="text-[9px] text-gray-400 font-bold block">Total Paid</span>
-                      <span className="text-xs font-black font-mono text-gray-900">₹{order.grandTotal.toFixed(2)}</span>
+                      <span className="text-xs font-black font-mono text-gray-900">₹{(order.grandTotal ?? 0).toFixed(2)}</span>
                     </div>
                   </div>
 
@@ -118,7 +118,7 @@ export default function OrderLookupDrawer({
                       {order.status}
                     </span>
                     <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-md ${
-                      order.paymentStatus.toLowerCase() === 'success' || order.paymentStatus.toLowerCase() === 'paid'
+                      ['success', 'paid'].includes((order.paymentStatus ?? '').toLowerCase())
                         ? 'bg-green-50 text-green-700 border border-green-150'
                         : 'bg-orange-50 text-orange-700 border border-orange-150'
                     }`}>

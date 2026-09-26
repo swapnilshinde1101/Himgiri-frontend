@@ -55,7 +55,13 @@ export default function MandatoryKitSection({ selectedKit, kitItems, catalogItem
                       imageUrl: item.imageUrl,
                       storageStatus: item.storageStatus,
                       description: 'This is a constituent item inside the selected School Kit.',
-                      stockQty: item.storageStatus === 'InStock' ? 999 : 0
+                      // No live stock figure is available for a kit item that isn't also
+                      // in the currently-loaded catalog page (no single-item lookup API
+                      // exists). Rather than fabricate a number, fall back to the kit's
+                      // own bundled quantity — a real, known lower bound (at least this
+                      // many exist, since they're currently packaged in an active kit),
+                      // not a guess.
+                      stockQty: item.storageStatus === 'InStock' ? item.quantity : 0
                     });
                   }
                 }}

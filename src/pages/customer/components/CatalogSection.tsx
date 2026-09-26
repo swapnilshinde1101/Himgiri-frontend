@@ -3,6 +3,7 @@ import { Search, Loader2, BookOpen } from 'lucide-react';
 import { clsx } from 'clsx';
 import { catalogService } from '../../../services/catalogService';
 import type { SchoolKit, Item, CategoryDto, Meta } from '../../../types';
+import type { StockAdjustableItem } from '../CustomerHome';
 
 interface Props {
   selectedKit: SchoolKit | null;
@@ -15,7 +16,7 @@ interface Props {
   catalogLoading: boolean;
   displayCatalogItems: Item[];
   addOnQuantities: Record<string, number>;
-  updateAddOnQty: (itemId: string, delta: number, item: any) => void;
+  updateAddOnQty: (itemId: string, delta: number, item: StockAdjustableItem) => void;
   onItemClick: (item: Item) => void;
   getInclusivePrice: (price: number, categoryName: string) => number;
   meta?: Meta;

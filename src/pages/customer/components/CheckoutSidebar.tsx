@@ -2,12 +2,12 @@ import { Truck, School, Check, User, Phone, Mail, MapPin, Loader2, ChevronRight,
 import { clsx } from 'clsx';
 import DeliveryMapPicker from './DeliveryMapPicker';
 import type { Item, StateDto } from '../../../types';
-import type { CartDisplayItem } from '../CustomerHome';
+import type { CartDisplayItem, StockAdjustableItem } from '../CustomerHome';
 
 interface Props {
   cartItems: CartDisplayItem[];
   catalogItems: Item[];
-  updateAddOnQty: (itemId: string, delta: number, item: any) => void;
+  updateAddOnQty: (itemId: string, delta: number, item: StockAdjustableItem) => void;
   isHomeDelivery: boolean;
   onSetHomeDelivery: (value: boolean) => void;
   firstName: string;

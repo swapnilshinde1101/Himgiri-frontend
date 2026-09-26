@@ -162,7 +162,7 @@ export default function ConfirmationPage() {
                     : '🏫 Delivered to classroom'}
                 </p>
               </div>
-              <span className="font-bold text-sm">₹{item.lineTotal.toFixed(2)}</span>
+              <span className="font-bold text-sm">₹{(item.lineTotal ?? 0).toFixed(2)}</span>
             </div>
           ))}
         </div>
@@ -171,7 +171,7 @@ export default function ConfirmationPage() {
         <div className="flex justify-between items-center pt-2 border-t border-gray-200">
           <span className="font-black text-gray-900">Total Paid</span>
           <span className="font-black text-xl text-blue-600">
-            ₹{order.grandTotal.toFixed(2)}
+            ₹{(order.grandTotal ?? 0).toFixed(2)}
           </span>
         </div>
 

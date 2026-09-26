@@ -25,6 +25,7 @@ interface DataTableProps<T> {
   onDelete?: (item: T) => void;
   totalRecords?: number;
   currentPage?: number;
+  pageSize?: number;
   onPageChange?: (page: number) => void;
   onSearch?: (term: string) => void;
   getSuggestions?: (term: string) => Promise<string[]>;
@@ -40,6 +41,7 @@ export default function DataTable<T extends { id: string | number }>({
   onDelete,
   totalRecords = 0,
   currentPage = 1,
+  pageSize = 10,
   onPageChange,
   onSearch,
   getSuggestions,
@@ -191,68 +193,40 @@ export default function DataTable<T extends { id: string | number }>({
               </tr>
             ) : (
               data.map((item) => (
-                // <tr key={item.id} className="hover:bg-himgiri-primary/[0.02] transition-colors group">
-                //   {columns.map((col, idx) => (
-                //     <td key={idx} className={clsx("px-6 py-5 text-sm font-bold text-gray-700", col.className)}>
-                //       {typeof col.accessor === 'function' 
-                //         ? col.accessor(item) 
-                //         : (item[col.accessor] as React.ReactNode)}
-                //     </td>
-                //   ))}
-                //   {(onEdit || onDelete || actions) && (
-                //     <td className="px-6 py-5 text-right">
-                //       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all text-nowrap transform translate-x-2 group-hover:translate-x-0">
-                //         {actions?.(item)}
-                //         {onEdit && (
-                //           <EditButton onClick={() => onEdit(item)} />
-                //         )}
-                //         {onDelete && (
-                //           <DeleteButton onClick={() => onDelete(item)} />
-                //         )}
-                //       </div>
-                //       <div className="group-hover:hidden flex justify-end">
-                //          <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
-                //             <MoreVertical className="h-4 w-4 text-gray-400" />
-                //          </div>
-                //       </div>
-                //     </td>
-                //   )}
-                // </tr>
-
                 <tr key={item.id} className="group hover:bg-himgiri-primary/[0.02] transition-colors">
-    {columns.map((col, idx) => (
-      <td key={idx} className={clsx("px-6 py-5 text-sm font-bold text-gray-700", col.className)}>
-        {typeof col.accessor === 'function' 
-          ? col.accessor(item) 
-          : (item[col.accessor] as React.ReactNode)}
-      </td>
-    ))}
-    {(onEdit || onDelete || actions) && (
-      <td className="px-6 py-5 text-right relative min-w-[140px]">
-        <div className="flex justify-end items-center">
-          
-          {/* Action Buttons Container */}
-          <div className="absolute right-6 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 text-nowrap transform translate-x-2 group-hover:translate-x-0 z-10">
-            {actions?.(item)}
-            {onEdit && (
-              <EditButton onClick={() => onEdit(item)} />
-            )}
-            {onDelete && (
-              <DeleteButton onClick={() => onDelete(item)} />
-            )}
-          </div>
-          
-          {/* Three Dots Icon Container */}
-          <div className="opacity-100 group-hover:opacity-0 transition-opacity duration-200 flex justify-end">
-             <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
-                <MoreVertical className="h-4 w-4 text-gray-400" />
-             </div>
-          </div>
+                  {columns.map((col, idx) => (
+                    <td key={idx} className={clsx("px-6 py-5 text-sm font-bold text-gray-700", col.className)}>
+                      {typeof col.accessor === 'function'
+                        ? col.accessor(item)
+                        : (item[col.accessor] as React.ReactNode)}
+                    </td>
+                  ))}
+                  {(onEdit || onDelete || actions) && (
+                    <td className="px-6 py-5 text-right relative min-w-[140px]">
+                      <div className="flex justify-end items-center">
 
-        </div>
-      </td>
-    )}
-  </tr>
+                        {/* Action Buttons Container */}
+                        <div className="absolute right-6 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 text-nowrap transform translate-x-2 group-hover:translate-x-0 z-10">
+                          {actions?.(item)}
+                          {onEdit && (
+                            <EditButton onClick={() => onEdit(item)} />
+                          )}
+                          {onDelete && (
+                            <DeleteButton onClick={() => onDelete(item)} />
+                          )}
+                        </div>
+
+                        {/* Three Dots Icon Container */}
+                        <div className="opacity-100 group-hover:opacity-0 transition-opacity duration-200 flex justify-end">
+                          <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
+                            <MoreVertical className="h-4 w-4 text-gray-400" />
+                          </div>
+                        </div>
+
+                      </div>
+                    </td>
+                  )}
+                </tr>
               ))
             )}
           </tbody>
@@ -263,9 +237,9 @@ export default function DataTable<T extends { id: string | number }>({
       {totalRecords > 0 && (
         <div className="px-8 py-5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between bg-gray-50/30 gap-4">
           <div className="text-xs font-bold text-himgiri-secondary-dark/50 uppercase tracking-widest">
-            Showing <span className="text-gray-900 font-black">{(currentPage - 1) * 10 + 1}</span> to{' '}
+            Showing <span className="text-gray-900 font-black">{(currentPage - 1) * pageSize + 1}</span> to{' '}
             <span className="text-gray-900 font-black">
-              {Math.min(currentPage * 10, totalRecords)}
+              {Math.min(currentPage * pageSize, totalRecords)}
             </span> of{' '}
             <span className="text-gray-900 font-black">{totalRecords}</span> results
           </div>
@@ -285,7 +259,7 @@ export default function DataTable<T extends { id: string | number }>({
               variant="outline"
               size="sm"
               className="rounded-xl px-4 border-gray-200"
-              disabled={currentPage * 10 >= totalRecords}
+              disabled={currentPage * pageSize >= totalRecords}
               onClick={() => onPageChange?.(currentPage + 1)}
               icon={ChevronRight}
               iconPosition="right"
