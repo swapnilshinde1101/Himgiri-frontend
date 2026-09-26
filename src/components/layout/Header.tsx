@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Menu, LogOut, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { authService } from '../../services/authService';
 import { useNavigate } from 'react-router-dom';
 import ActionModal from '../shared/ActionModal';
 import toast from 'react-hot-toast';
@@ -12,11 +13,16 @@ interface HeaderProps {
 }
 
 export default function Header({ onOpenSidebar, isCollapsed, onToggleCollapse }: HeaderProps) {
-  const { logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Revoke the refresh token server-side too — otherwise a copy of it (if ever
+    // leaked) would keep working even after the user thinks they've logged out.
+    if (user?.refreshToken) {
+      await authService.logout(user.refreshToken);
+    }
     logout();
     toast.success('Logged out successfully');
     navigate('/admin/login');

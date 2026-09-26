@@ -13,6 +13,7 @@ export interface LoginRequest {
 
 export interface AuthUser {
   token: string;
+  refreshToken: string;
   name: string;
   email: string;
   role: AdminRole;
