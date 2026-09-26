@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { orderService } from '../../services/orderService';
 import toast from 'react-hot-toast';
@@ -7,6 +7,8 @@ import { ShoppingBag, Loader2, CreditCard } from 'lucide-react';
 export default function ConfirmationPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token');
   const [order, setOrder] = useState<any>(null);
   const [status, setStatus] = useState<'loading' | 'success' | 'pending' | 'failed' | 'timeout'>('loading');
   const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
@@ -28,7 +30,7 @@ export default function ConfirmationPage() {
       }
 
       try {
-        const res = await orderService.getOrderLookup(orderId);
+        const res = await orderService.getOrderLookup(orderId, token);
         const orderData = res.data;
 
         if (!isMounted) return;

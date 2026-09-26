@@ -38,8 +38,18 @@ export const orderService = {
     return data.data;
   },
 
-  getOrderLookup: async (orderId: string): Promise<ApiResponse<any>> => {
-    const { data } = await api.get<ApiResponse<any>>(`/orders/${orderId}/lookup`);
+  getOrderLookup: async (
+    orderId: string,
+    token?: string | null,
+    mobile?: string | null,
+    pincode?: string | null
+  ): Promise<ApiResponse<any>> => {
+    const params = new URLSearchParams();
+    if (token) params.append('token', token);
+    if (mobile) params.append('mobile', mobile);
+    if (pincode) params.append('pincode', pincode);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    const { data } = await api.get<ApiResponse<any>>(`/orders/${orderId}/lookup${queryString}`);
     return data;
   },
 

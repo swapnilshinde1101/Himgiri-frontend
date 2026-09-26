@@ -132,8 +132,9 @@ export const adminOrderService = {
     return data;
   },
 
-  exportCsv: async (): Promise<void> => {
-    const response = await api.get('/orders/export/csv', { responseType: 'blob' });
+  exportCsv: async (startDate?: string, endDate?: string): Promise<void> => {
+    const params = { ...(startDate && { startDate }), ...(endDate && { endDate }) };
+    const response = await api.get('/orders/export/csv', { params, responseType: 'blob' });
     const blob = new Blob([response.data], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -145,8 +146,9 @@ export const adminOrderService = {
     window.URL.revokeObjectURL(url);
   },
 
-  exportExcel: async (): Promise<void> => {
-    const response = await api.get('/orders/export/excel', { responseType: 'blob' });
+  exportExcel: async (startDate?: string, endDate?: string): Promise<void> => {
+    const params = { ...(startDate && { startDate }), ...(endDate && { endDate }) };
+    const response = await api.get('/orders/export/excel', { params, responseType: 'blob' });
     const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');

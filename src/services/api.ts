@@ -60,15 +60,9 @@ api.interceptors.response.use(
         break;
 
       default:
-        // Network or unknown error (Backend is disconnected)
+        // Network or unknown error (Backend is disconnected or transient offline)
         if (!error.response) {
-            toast.error('Server unreachable.');
-            sessionStorage.removeItem('himgiri-auth-storage');
-            if (window.location.pathname.startsWith('/admin')) {
-              setTimeout(() => {
-                  window.location.href = '/admin/login';
-              }, 2000);
-            }
+            toast.error('Network connection issue. Please check your internet connection.');
         } else {
             toast.error(message);
         }

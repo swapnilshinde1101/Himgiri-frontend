@@ -4,6 +4,8 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import Footer from './Footer';
 
+import LoadingSpinner from '../shared/LoadingSpinner';
+
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -27,7 +29,9 @@ export default function AdminLayout() {
         
         <main className="flex-1 relative overflow-y-auto focus:outline-none p-4 lg:p-8 flex flex-col">
           <div className="max-w-7xl mx-auto w-full flex-1">
-            <Outlet />
+            <React.Suspense fallback={<div className="flex h-64 items-center justify-center"><LoadingSpinner size="lg" /></div>}>
+              <Outlet />
+            </React.Suspense>
           </div>
           
           {/* <Footer /> */}

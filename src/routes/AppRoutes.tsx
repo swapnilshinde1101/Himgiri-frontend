@@ -1,45 +1,48 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from '../components/shared/ProtectedRoute';
 import AdminLayout from '../components/layout/AdminLayout';
-import AdminLoginPage from '../pages/admin/LoginPage';
+import LoadingSpinner from '../components/shared/LoadingSpinner';
 import CustomerHome from '../pages/customer/CustomerHome';
 import ConfirmationPage from '../pages/customer/ConfirmationPage';
-import DashboardPage from '../pages/admin/DashboardPage';
-import AdminOrdersPage from '../pages/admin/orders/OrdersPage';
-import AdminOrderDetailPage from '../pages/admin/orders/OrderDetailPage';
+
+// Lazy loaded admin routes for code-splitting
+const AdminLoginPage = lazy(() => import('../pages/admin/LoginPage'));
+const DashboardPage = lazy(() => import('../pages/admin/DashboardPage'));
+const AdminOrdersPage = lazy(() => import('../pages/admin/orders/OrdersPage'));
+const AdminOrderDetailPage = lazy(() => import('../pages/admin/orders/OrderDetailPage'));
 
 // Accounts features
-import AccountsDashboard from '../features/accounts/AccountsDashboard';
-import OrdersPage from '../features/accounts/OrdersPage';
-import InvoicesPage from '../features/accounts/InvoicesPage';
-import VendorsPage from '../features/accounts/VendorsPage';
+const AccountsDashboard = lazy(() => import('../features/accounts/AccountsDashboard'));
+const InvoicesPage = lazy(() => import('../features/accounts/InvoicesPage'));
+const VendorsPage = lazy(() => import('../features/accounts/VendorsPage'));
 
 // Inventory features
-import InventoryDashboard from '../features/inventory/InventoryDashboard';
-import ItemsPage from '../features/inventory/ItemsPage';
-import StockPage from '../features/inventory/StockPage';
-import KitsPage from '../features/inventory/KitsPage';
-import GradesPage from '../features/inventory/GradesPage';
-import CategoriesPage from '../features/inventory/CategoriesPage';
-import StockHistoryPage from '../features/inventory/StockHistoryPage';
+const InventoryDashboard = lazy(() => import('../features/inventory/InventoryDashboard'));
+const ItemsPage = lazy(() => import('../features/inventory/ItemsPage'));
+const StockPage = lazy(() => import('../features/inventory/StockPage'));
+const KitsPage = lazy(() => import('../features/inventory/KitsPage'));
+const GradesPage = lazy(() => import('../features/inventory/GradesPage'));
+const CategoriesPage = lazy(() => import('../features/inventory/CategoriesPage'));
+const StockHistoryPage = lazy(() => import('../features/inventory/StockHistoryPage'));
 
 // Reports features
-import ReportsDashboard from '../features/reports/ReportsDashboard';
-import InventoryReportsPage from '../features/reports/InventoryReportsPage';
-import AccountReportsPage from '../features/reports/AccountReportsPage';
-import StaffReportsPage from '../features/reports/StaffReportsPage';
+const ReportsDashboard = lazy(() => import('../features/reports/ReportsDashboard'));
+const InventoryReportsPage = lazy(() => import('../features/reports/InventoryReportsPage'));
+const AccountReportsPage = lazy(() => import('../features/reports/AccountReportsPage'));
+const StaffReportsPage = lazy(() => import('../features/reports/StaffReportsPage'));
 
 // Settings features
-import SettingsDashboard from '../features/settings/SettingsDashboard';
-import AccountSettingsPage from '../features/settings/AccountSettingsPage';
-import EntitySettingsPage from '../features/settings/EntitySettingsPage';
-import GstRatesPage from '../features/settings/GstRatesPage';
-import StaffSettingsPage from '../features/settings/StaffSettingsPage';
+const SettingsDashboard = lazy(() => import('../features/settings/SettingsDashboard'));
+const AccountSettingsPage = lazy(() => import('../features/settings/AccountSettingsPage'));
+const EntitySettingsPage = lazy(() => import('../features/settings/EntitySettingsPage'));
+const GstRatesPage = lazy(() => import('../features/settings/GstRatesPage'));
+const StaffSettingsPage = lazy(() => import('../features/settings/StaffSettingsPage'));
 
 export default function AppRoutes() {
   return (
-    <Routes>
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-gray-50"><LoadingSpinner size="lg" /></div>}>
+      <Routes>
       {/* Public customer routes */}
       <Route path="/" element={<CustomerHome />} />
       <Route path="/lookup" element={<CustomerHome />} />
@@ -61,7 +64,14 @@ export default function AppRoutes() {
         <Route path="dashboard" element={<DashboardPage />} />
         
         {/* Nested Inventory Module with Tabs */}
-        <Route path="inventory" element={<InventoryDashboard />}>
+        <Route
+          path="inventory"
+          element={
+            <ProtectedRoute allowedRoles={['SuperAdmin', 'InventoryManager']}>
+              <InventoryDashboard />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<Navigate to="items" replace />} />
           <Route path="items" element={<ItemsPage />} />
           <Route path="stock" element={<StockPage />} />
@@ -121,5 +131,6 @@ export default function AppRoutes() {
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+  </Suspense>
   );
 }

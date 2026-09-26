@@ -106,6 +106,18 @@ export default function CustomerHome() {
   // Checkout states
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+
+  // Reset pending order if cart contents or checkout details change, so a payment
+  // retry never silently reuses stale data from before the customer's edit.
+  useEffect(() => {
+    setPendingOrderId(null);
+  }, [
+    selectedKit, addOnQuantities,
+    firstName, lastName, email, mobile,
+    addressLine1, addressLine2, city, pincode, customerStateId,
+    isHomeDelivery, mapLocation
+  ]);
 
   // Lookup & Tracking states
   const [showLookupPanel, setShowLookupPanel] = useState(false);
@@ -364,46 +376,55 @@ export default function CustomerHome() {
 
   const executeOrderPlacement = async () => {
     setIsPlacingOrder(true);
-    setShowCheckoutModal(false);
     try {
-      const finalAddressLine2 = mapLocation
-        ? `${addressLine2} (Map: https://maps.google.com/?q=${mapLocation.lat},${mapLocation.lng})`.trim()
-        : addressLine2;
+      let targetOrderId = pendingOrderId;
 
-      const customerName = `${firstName} ${lastName}`.trim();
+      if (!targetOrderId) {
+        const finalAddressLine2 = mapLocation
+          ? `${addressLine2} (Map: https://maps.google.com/?q=${mapLocation.lat},${mapLocation.lng})`.trim()
+          : addressLine2;
 
-      const orderReq = {
-        customerName: customerName,
-        email: email,
-        mobile: mobile,
-        addressLine1: addressLine1,
-        addressLine2: finalAddressLine2,
-        city: city,
-        pincode: pincode,
-        customerStateId: customerStateId,
-        customerGstin: null,
-        gradeId: selectedGradeId || null,
-        items: cartItems.map(item => ({
-          itemId: item.itemId,
-          quantity: item.quantity,
-          isKitItem: item.isKitItem
-        })),
-        isHomeDelivery: isHomeDelivery
-      };
+        const customerName = `${firstName} ${lastName}`.trim();
 
-      const res = await orderService.createOrder(orderReq);
-      if (res.statusCode === 200 && res.data) {
-        toast.success('Order generated in system. Redirecting to payment...');
+        const orderReq = {
+          customerName: customerName,
+          email: email,
+          mobile: mobile,
+          addressLine1: addressLine1,
+          addressLine2: finalAddressLine2,
+          city: city,
+          pincode: pincode,
+          customerStateId: customerStateId,
+          customerGstin: null,
+          gradeId: selectedGradeId || null,
+          items: cartItems.map(item => ({
+            itemId: item.itemId,
+            quantity: item.quantity,
+            isKitItem: item.isKitItem
+          })),
+          isHomeDelivery: isHomeDelivery
+        };
 
-        // Initiate Jodo payment
-        try {
-          const payRes = await orderService.initiatePayment(res.data.id);
-          window.location.href = payRes.redirectUrl;
-        } catch (payErr: any) {
-          toast.error(payErr?.response?.data?.message || 'Failed to initiate payment. Please try again.');
+        const res = await orderService.createOrder(orderReq);
+        if (res.statusCode === 200 && res.data) {
+          targetOrderId = res.data.id;
+          setPendingOrderId(targetOrderId);
+        } else {
+          toast.error(res.message || 'Failed to place order.');
+          return;
         }
-      } else {
-        toast.error(res.message || 'Failed to place order.');
+      }
+
+      setShowCheckoutModal(false);
+      toast.success('Redirecting to payment...');
+
+      // Initiate Jodo payment
+      try {
+        const payRes = await orderService.initiatePayment(targetOrderId);
+        window.location.href = payRes.redirectUrl;
+      } catch (payErr: any) {
+        toast.error(payErr?.response?.data?.message || 'Payment initiation failed. Please click Checkout to retry payment.');
+        setShowCheckoutModal(true); // Re-open modal so parent can retry payment on the existing order
       }
     } catch (err: any) {
       // Handled by global response interceptor
