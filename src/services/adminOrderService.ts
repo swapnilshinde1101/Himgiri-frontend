@@ -206,5 +206,10 @@ export const adminOrderService = {
   getCustomerHistory: async (mobile: string): Promise<ApiResponse<AdminOrderSummaryDto[]>> => {
     const { data } = await api.get<ApiResponse<AdminOrderSummaryDto[]>>(`/orders/customers/${mobile}`);
     return data;
+  },
+
+  sendNotification: async (id: string, type: 'confirmation' | 'dispatch'): Promise<ApiResponse<boolean>> => {
+    const { data } = await api.post<ApiResponse<boolean>>(`/orders/${id}/notify?type=${type}`);
+    return data;
   }
 };

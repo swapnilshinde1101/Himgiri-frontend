@@ -1,6 +1,6 @@
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import TabManager from '../../components/shared/TabManager';
-import { Package, Database, School, Tags, History, Briefcase, Percent, Users } from 'lucide-react';
+import { Package, Database, School, Tags, History, Briefcase, Percent, Users, Mail } from 'lucide-react';
 
 export default function SettingsDashboard() {
   const location = useLocation();
@@ -11,6 +11,7 @@ export default function SettingsDashboard() {
     { id: 'entity', label: 'Entity Management', icon: Database, path: '/admin/settings/entity' },
     { id: 'gst', label: 'GST', icon: Percent, path: '/admin/settings/gst' },
     { id: 'staff', label: 'Staff Management', icon: Users, path: '/admin/settings/staff' },
+    { id: 'email', label: 'Email & SMTP', icon: Mail, path: '/admin/settings/email' },
   ];
 
   // Map current path to tab index

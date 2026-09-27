@@ -24,7 +24,9 @@ import {
   Sparkles,
   Home,
   School,
-  Truck
+  Truck,
+  Send,
+  Bell
 } from 'lucide-react';
 import type { OrderStatus, PaymentStatus } from '../../../types';
 import HasPermission, { usePermission } from '../../../components/shared/HasPermission';
@@ -49,6 +51,7 @@ export default function OrderDetailPage() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadingChallan, setIsDownloadingChallan] = useState(false);
+  const [isSendingNotification, setIsSendingNotification] = useState<'confirmation' | 'dispatch' | null>(null);
   const [isFlaggingStockOut, setIsFlaggingStockOut] = useState(false);
 
   // Fetch Order
@@ -192,6 +195,28 @@ export default function OrderDetailPage() {
       }
     } finally {
       setIsDownloadingChallan(false);
+    }
+  };
+
+  const handleSendNotification = async (type: 'confirmation' | 'dispatch') => {
+    if (!order) return;
+    try {
+      setIsSendingNotification(type);
+      const res = await adminOrderService.sendNotification(order.id, type);
+      if (res.statusCode === 200) {
+        toast.success(
+          type === 'confirmation'
+            ? 'Order confirmation email & WhatsApp sent!'
+            : 'Dispatch notification email & WhatsApp sent!'
+        );
+        refetch();
+      } else {
+        toast.error(res.message || 'Failed to dispatch notifications.');
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to dispatch notifications.');
+    } finally {
+      setIsSendingNotification(null);
     }
   };
 
@@ -494,6 +519,17 @@ export default function OrderDetailPage() {
               className="rounded-xl border-gray-250 text-xs font-bold flex-1 md:flex-none"
             >
               Tax Invoice PDF
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Send}
+              isLoading={isSendingNotification !== null}
+              onClick={() => handleSendNotification(order.status === 'Dispatched' ? 'dispatch' : 'confirmation')}
+              className="rounded-xl border-gray-250 text-xs font-bold flex-1 md:flex-none text-emerald-700 hover:text-emerald-800"
+              title="Resend email & WhatsApp notifications with PDF document links to parent"
+            >
+              {order.status === 'Dispatched' ? 'Notify Dispatch' : 'Notify Parent'}
             </Button>
           </div>
         </div>

@@ -38,6 +38,7 @@ const AccountSettingsPage = lazy(() => import('../features/settings/AccountSetti
 const EntitySettingsPage = lazy(() => import('../features/settings/EntitySettingsPage'));
 const GstRatesPage = lazy(() => import('../features/settings/GstRatesPage'));
 const StaffSettingsPage = lazy(() => import('../features/settings/StaffSettingsPage'));
+const EmailSettingsPage = lazy(() => import('../features/settings/EmailSettingsPage'));
 
 export default function AppRoutes() {
   return (
@@ -125,6 +126,7 @@ export default function AppRoutes() {
           <Route path="entity" element={<EntitySettingsPage />} />
           <Route path="gst" element={<GstRatesPage />} />
           <Route path="staff" element={<StaffSettingsPage />} />
+          <Route path="email" element={<EmailSettingsPage />} />
         </Route>
       </Route>      
 
