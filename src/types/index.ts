@@ -5,6 +5,25 @@ export type OrderStatus = 'Pending' | 'Confirmed' | 'Packed' | 'Dispatched' | 'D
 export type PaymentStatus = 'Pending' | 'Success' | 'Failed';
 export type ItemCategory = 'Textbook' | 'Stationery' | 'Bag' | 'Journal' | 'DeliveryFee';
 
+export type PermissionCode =
+  | 'catalog:view'
+  | 'catalog:manage'
+  | 'catalog:edit_pricing'
+  | 'stock:view'
+  | 'stock:inward'
+  | 'stock:adjust'
+  | 'orders:view'
+  | 'orders:fulfill'
+  | 'orders:notes'
+  | 'orders:refund'
+  | 'orders:export'
+  | 'reports:accounts'
+  | 'reports:inventory'
+  | 'reports:staff_audit'
+  | 'settings:view'
+  | 'settings:manage'
+  | 'staff:manage';
+
 // ── Auth ──
 export interface LoginRequest {
   email: string;
@@ -18,6 +37,7 @@ export interface AuthUser {
   email: string;
   role: AdminRole;
   expiresAt: string;
+  permissions?: string[];
 }
 
 // ── Items ──
