@@ -137,7 +137,7 @@ export default function OrderLookupDrawer({
                       <CreditCard className="h-3.5 w-3.5" />
                       <span>Invoice</span>
                     </button>
-                    {onDownloadDeliveryChallan && (
+                    {onDownloadDeliveryChallan && ['Dispatched', 'Delivered'].includes(order.status) && (
                       <button
                         type="button"
                         onClick={() => onDownloadDeliveryChallan(order.id, order.invoiceNumber)}
