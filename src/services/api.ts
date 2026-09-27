@@ -85,7 +85,18 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const message = error.response?.data?.message || 'Something went wrong';
+    const data = error.response?.data;
+    let message = data?.message;
+
+    // If message is missing, inspect standard validation errors dictionary or ProblemDetails title
+    if (!message && data?.errors && typeof data.errors === 'object') {
+      const firstKey = Object.keys(data.errors)[0];
+      const errorVal = data.errors[firstKey];
+      message = Array.isArray(errorVal) ? errorVal[0] : String(errorVal);
+    } else if (!message && data?.title) {
+      message = data.title;
+    }
+    message = message || 'Something went wrong';
 
     switch (status) {
       case 401:
@@ -108,8 +119,12 @@ api.interceptors.response.use(
         break;
 
       case 500:
-        // Server Error
-        toast.error('Server error. Please try again later.');
+        // Server Error — include Trace ID if available for diagnostic reference
+        const errorId = data?.appError;
+        const serverMsg = errorId && errorId.length > 5
+          ? `Server error (Ref: ${errorId}). Please contact support.`
+          : (message !== 'Something went wrong' ? message : 'Server error. Please try again later.');
+        toast.error(serverMsg);
         break;
 
       default:

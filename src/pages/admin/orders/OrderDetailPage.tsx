@@ -14,6 +14,7 @@ import {
   Phone, 
   FileText, 
   Download, 
+  Printer,
   Clock, 
   Plus, 
   AlertTriangle,
@@ -163,6 +164,131 @@ export default function OrderDetailPage() {
     }
   };
 
+  const handlePrintPackingSlip = () => {
+    if (!order) return;
+    const printWindow = window.open('', '_blank', 'width=850,height=900');
+    if (!printWindow) {
+      toast.error('Unable to open print preview. Please check popup permissions.');
+      return;
+    }
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Packing Slip - ${order.invoiceNumber}</title>
+          <style>
+            * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+            body { padding: 30px; color: #111827; line-height: 1.5; font-size: 13px; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e5e7eb; padding-bottom: 16px; margin-bottom: 24px; }
+            .title { font-size: 22px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; }
+            .subtitle { font-size: 12px; color: #6b7280; font-weight: 500; }
+            .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+            .badge-home { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+            .badge-school { background: #f0fdfa; color: #0f766e; border: 1px solid #99f6e4; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+            .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; }
+            .card-title { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+            th { background: #f3f4f6; text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #4b5563; border-bottom: 2px solid #e5e7eb; }
+            td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
+            .check-col { width: 40px; text-align: center; }
+            .check-box { width: 18px; height: 18px; border: 2px solid #9ca3af; border-radius: 3px; display: inline-block; }
+            .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-top: 40px; border-top: 1px dashed #d1d5db; padding-top: 24px; }
+            .sig-line { border-top: 1px solid #111827; margin-top: 36px; padding-top: 6px; font-size: 11px; font-weight: 600; color: #4b5563; text-align: center; }
+            @media print {
+              body { padding: 0; }
+              @page { margin: 1.5cm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">Himgiri Warehouse Packing Slip</div>
+              <div class="subtitle">Order Fulfillment & Dispatch Manifest</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 16px; font-weight: 800;">${order.invoiceNumber}</div>
+              <div class="subtitle">Date: ${new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+              <div style="margin-top: 6px;">
+                <span class="badge ${order.isHomeDelivery ? 'badge-home' : 'badge-school'}">
+                  ${order.isHomeDelivery ? '🏠 Home Delivery' : '🏫 Classroom Handover'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="card">
+              <div class="card-title">Recipient & Delivery Info</div>
+              <div style="font-weight: 700; font-size: 14px;">${order.customerName}</div>
+              <div>Phone: <strong>${order.mobile}</strong></div>
+              <div>Email: ${order.email}</div>
+              <div style="margin-top: 6px; color: #374151;">
+                ${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}<br/>
+                ${order.city} - ${order.pincode}, ${order.customerStateName || ''}
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Student & Academic Details</div>
+              <div>Grade / Class: <strong>${order.gradeName || 'N/A'}</strong></div>
+              <div>Total Package Items: <strong>${order.items.reduce((acc, it) => acc + it.quantity, 0)} units</strong></div>
+              <div>Payment Status: <strong>${order.paymentStatus}</strong></div>
+              <div style="margin-top: 6px; font-size: 11px; color: #6b7280;">Order Status: <strong>${order.status}</strong></div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th class="check-col">Packed</th>
+                <th>#</th>
+                <th>Item Description</th>
+                <th>Type</th>
+                <th>HSN</th>
+                <th style="text-align: right;">Quantity</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${order.items.map((item, i) => `
+                <tr>
+                  <td class="check-col"><div class="check-box"></div></td>
+                  <td>${i + 1}</td>
+                  <td><strong>${item.itemName}</strong></td>
+                  <td>${item.isKitItem ? 'School Kit' : 'Extra Item'}</td>
+                  <td>${item.hsnCode || '—'}</td>
+                  <td style="text-align: right; font-weight: 800; font-size: 13px;">${item.quantity}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="signatures">
+            <div>
+              <div class="sig-line">Picked By (Warehouse)</div>
+            </div>
+            <div>
+              <div class="sig-line">Packed & Verified By</div>
+            </div>
+            <div>
+              <div class="sig-line">Dispatched / Handover Signature</div>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const getStatusBadge = (orderStatus: OrderStatus) => {
     switch (orderStatus) {
       case 'Pending':
@@ -220,9 +346,10 @@ export default function OrderDetailPage() {
       transitions.push('StockOut');
     }
 
-    // Any non-terminal (Pending/Confirmed/Packed/Dispatched) -> Refunded (SuperAdmin only)
-    const isTerminal = status === 'Delivered' || status === 'Refunded' || status === 'StockOut';
-    if (!isTerminal && isSuperAdmin) {
+    // Any non-terminal (Pending/Confirmed/Packed/Dispatched/Delivered) -> Refunded (SuperAdmin only)
+    // Dispatched and Delivered orders can be refunded by SuperAdmin with automated stock replenishment
+    const isRefundable = status !== 'Refunded' && status !== 'StockOut';
+    if (isRefundable && isSuperAdmin) {
       transitions.push('Refunded');
     }
 
@@ -267,7 +394,7 @@ export default function OrderDetailPage() {
   }
 
   const allowedTransitions = getAllowedTransitions(order.status);
-  const isTerminalState = order.status === 'Delivered' || order.status === 'Refunded' || order.status === 'StockOut';
+  const isTerminalState = order.status === 'Refunded' || order.status === 'StockOut' || (order.status === 'Delivered' && !isSuperAdmin);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -305,6 +432,15 @@ export default function OrderDetailPage() {
           </div>
 
           <div className="flex gap-2 w-full md:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Printer}
+              onClick={handlePrintPackingSlip}
+              className="rounded-xl border-gray-250 text-xs font-bold flex-1 md:flex-none"
+            >
+              Packing Slip
+            </Button>
             <Button
               variant="outline"
               size="sm"

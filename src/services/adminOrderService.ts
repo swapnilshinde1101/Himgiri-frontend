@@ -101,6 +101,13 @@ export interface CustomerSummaryDto {
   customerStateId: string;
 }
 
+export interface BulkOrderStatusResultDto {
+  updatedCount: number;
+  skippedCount: number;
+  updatedInvoices: string[];
+  skippedReasons: string[];
+}
+
 export const adminOrderService = {
   getOrders: async (params?: OrderQueryRequest): Promise<ApiResponse<AdminOrderSummaryDto[]>> => {
     const { data } = await api.get<ApiResponse<AdminOrderSummaryDto[]>>('/orders', { params });
@@ -114,6 +121,11 @@ export const adminOrderService = {
 
   updateStatus: async (id: string, toStatus: OrderStatus, note?: string): Promise<ApiResponse<boolean>> => {
     const { data } = await api.patch<ApiResponse<boolean>>(`/orders/${id}/status`, { toStatus, note });
+    return data;
+  },
+
+  bulkUpdateStatus: async (orderIds: string[], toStatus: OrderStatus, note?: string): Promise<ApiResponse<BulkOrderStatusResultDto>> => {
+    const { data } = await api.patch<ApiResponse<BulkOrderStatusResultDto>>('/orders/bulk-status', { orderIds, toStatus, note });
     return data;
   },
 

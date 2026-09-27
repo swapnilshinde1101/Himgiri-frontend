@@ -17,7 +17,10 @@ import {
   Home, 
   School, 
   AlertCircle,
-  Eye
+  Eye,
+  Package,
+  Truck,
+  CheckSquare
 } from 'lucide-react';
 import type { OrderStatus, PaymentStatus } from '../../../types';
 
@@ -34,6 +37,10 @@ export default function OrdersPage() {
   const [startDate, setStartDate] = useState<string | undefined>(undefined);
   const [endDate, setEndDate] = useState<string | undefined>(undefined);
 
+  // Bulk Selection States
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
   // Export Loading States
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -41,9 +48,10 @@ export default function OrdersPage() {
   // Debounced search
   const debouncedSearch = useDebounce(searchVal, 300);
 
-  // Reset page when filters change
+  // Reset page & selection when filters change
   useEffect(() => {
     setPageNumber(1);
+    setSelectedOrderIds([]);
   }, [debouncedSearch, status, paymentStatus, gradeId, startDate, endDate]);
 
   // Master Data (Grades)
@@ -95,6 +103,37 @@ export default function OrdersPage() {
       toast.error('Failed to export Excel');
     } finally {
       setIsExportingExcel(false);
+    }
+  };
+
+  const handleBulkUpdate = async (toStatus: OrderStatus) => {
+    if (selectedOrderIds.length === 0) return;
+
+    if (toStatus === 'Dispatched') {
+      const confirmed = window.confirm(
+        `Marking ${selectedOrderIds.length} order(s) as Dispatched will deduct inventory from stock. Proceed with batch dispatch?`
+      );
+      if (!confirmed) return;
+    }
+
+    setIsBulkUpdating(true);
+    try {
+      const res = await adminOrderService.bulkUpdateStatus(selectedOrderIds, toStatus);
+      if (res.data) {
+        toast.success(`Updated ${res.data.updatedCount} order(s) to ${toStatus}!`);
+        if (res.data.skippedCount > 0) {
+          toast(
+            `${res.data.skippedCount} order(s) skipped (already processed or incompatible status).`,
+            { icon: '⚠️' }
+          );
+        }
+      }
+      setSelectedOrderIds([]);
+      refetch();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to update selected orders.');
+    } finally {
+      setIsBulkUpdating(false);
     }
   };
 
@@ -289,6 +328,7 @@ export default function OrdersPage() {
           <table className="min-w-full divide-y divide-gray-100">
             <thead className="bg-gray-50/50">
               <tr>
+                <th className="px-4 py-4 w-10 text-center"><div className="h-4 w-4 bg-gray-200 rounded mx-auto"></div></th>
                 {['Invoice No', 'Customer', 'Mobile', 'Grade', 'Grand Total', 'Order Status', 'Payment', 'Delivery', 'Date', 'Actions'].map((h) => (
                   <th key={h} className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-wider">{h}</th>
                 ))}
@@ -297,6 +337,7 @@ export default function OrdersPage() {
             <tbody className="bg-white divide-y divide-gray-50">
               {[...Array(6)].map((_, i) => (
                 <tr key={i} className="animate-pulse">
+                  <td className="px-4 py-4 text-center"><div className="h-4 w-4 bg-gray-100 rounded mx-auto"></div></td>
                   <td className="px-6 py-4"><div className="h-3 bg-gray-100 rounded-full w-24"></div></td>
                   <td className="px-6 py-4"><div className="h-3 bg-gray-100 rounded-full w-32"></div></td>
                   <td className="px-6 py-4"><div className="h-3 bg-gray-100 rounded-full w-24"></div></td>
@@ -330,92 +371,129 @@ export default function OrdersPage() {
               <table className="min-w-full divide-y divide-gray-100">
                 <thead className="bg-gray-50/50">
                   <tr>
+                    <th className="px-4 py-4 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-himgiri-primary focus:ring-himgiri-primary/30 h-4 w-4 cursor-pointer"
+                        checked={ordersList.length > 0 && ordersList.every((o) => selectedOrderIds.includes(o.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedOrderIds(Array.from(new Set([...selectedOrderIds, ...ordersList.map((o) => o.id)])));
+                          } else {
+                            const currentIds = new Set(ordersList.map((o) => o.id));
+                            setSelectedOrderIds(selectedOrderIds.filter((id) => !currentIds.has(id)));
+                          }
+                        }}
+                      />
+                    </th>
                     {['Invoice No', 'Customer', 'Mobile', 'Grade', 'Grand Total', 'Order Status', 'Payment', 'Delivery', 'Date', 'Actions'].map((h) => (
                       <th key={h} className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-50">
-                  {ordersList.map((order) => (
-                    <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
-                      {/* Invoice No */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-xs font-black text-gray-900 tracking-tight">{order.invoiceNumber}</span>
-                      </td>
+                  {ordersList.map((order) => {
+                    const isSelected = selectedOrderIds.includes(order.id);
+                    return (
+                      <tr 
+                        key={order.id} 
+                        className={`hover:bg-gray-50/50 transition-colors ${isSelected ? 'bg-blue-50/30' : ''}`}
+                      >
+                        {/* Checkbox */}
+                        <td className="px-4 py-4 whitespace-nowrap text-center">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-himgiri-primary focus:ring-himgiri-primary/30 h-4 w-4 cursor-pointer"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedOrderIds((prev) => [...prev, order.id]);
+                              } else {
+                                setSelectedOrderIds((prev) => prev.filter((id) => id !== order.id));
+                              }
+                            }}
+                          />
+                        </td>
 
-                      {/* Customer Name & Email */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-gray-900">{order.customerName}</span>
-                          <span className="text-[10px] text-gray-400 mt-0.5">{order.email}</span>
-                        </div>
-                      </td>
+                        {/* Invoice No */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-xs font-black text-gray-900 tracking-tight">{order.invoiceNumber}</span>
+                        </td>
 
-                      {/* Mobile */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-xs font-semibold text-gray-600">{order.mobile}</span>
-                      </td>
+                        {/* Customer Name & Email */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-gray-900">{order.customerName}</span>
+                            <span className="text-[10px] text-gray-400 mt-0.5">{order.email}</span>
+                          </div>
+                        </td>
 
-                      {/* Grade */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
-                          {order.gradeName || 'N/A'}
-                        </span>
-                      </td>
+                        {/* Mobile */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-xs font-semibold text-gray-600">{order.mobile}</span>
+                        </td>
 
-                      {/* Total */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-xs font-black text-gray-900">₹{order.grandTotal.toFixed(2)}</span>
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(order.status)}
-                      </td>
-
-                      {/* Payment */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getPaymentBadge(order.paymentStatus)}
-                      </td>
-
-                      {/* Delivery */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {order.isHomeDelivery ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-100 px-2.5 py-0.5 rounded-full">
-                            <Home className="h-3 w-3" /> Home
+                        {/* Grade */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                            {order.gradeName || 'N/A'}
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-600 bg-teal-50 border border-teal-100 px-2.5 py-0.5 rounded-full">
-                            <School className="h-3 w-3" /> Class
+                        </td>
+
+                        {/* Total */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-xs font-black text-gray-900">₹{order.grandTotal.toFixed(2)}</span>
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(order.status)}
+                        </td>
+
+                        {/* Payment */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getPaymentBadge(order.paymentStatus)}
+                        </td>
+
+                        {/* Delivery */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {order.isHomeDelivery ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-100 px-2.5 py-0.5 rounded-full">
+                              <Home className="h-3 w-3" /> Home
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-600 bg-teal-50 border border-teal-100 px-2.5 py-0.5 rounded-full">
+                              <School className="h-3 w-3" /> Class
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Date */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-xs font-semibold text-gray-500">
+                            {new Date(order.createdAt).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
                           </span>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* Date */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-xs font-semibold text-gray-500">
-                          {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          icon={Eye}
-                          onClick={() => navigate(`/admin/accounts/orders/${order.id}`)}
-                          className="rounded-lg text-gray-500 hover:text-himgiri-primary hover:bg-himgiri-primary/5 font-black text-[11px] px-2 py-1"
-                        >
-                          View
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                        {/* Actions */}
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            icon={Eye}
+                            onClick={() => navigate(`/admin/accounts/orders/${order.id}`)}
+                            className="rounded-lg text-gray-500 hover:text-himgiri-primary hover:bg-himgiri-primary/5 font-black text-[11px] px-2 py-1"
+                          >
+                            View
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -453,6 +531,66 @@ export default function OrdersPage() {
                 >
                   Next
                 </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Floating Bulk Action Bar */}
+          {selectedOrderIds.length > 0 && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 backdrop-blur-md text-white px-6 py-3.5 rounded-2xl shadow-2xl border border-gray-700/80 flex flex-wrap items-center gap-4 animate-in slide-in-from-bottom-5 duration-200">
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex items-center justify-center bg-himgiri-primary text-white text-xs font-black rounded-full h-6 w-6 shadow-sm">
+                  {selectedOrderIds.length}
+                </span>
+                <span className="text-xs font-bold text-gray-200">
+                  {selectedOrderIds.length === 1 ? '1 order selected' : `${selectedOrderIds.length} orders selected`}
+                </span>
+              </div>
+
+              <div className="h-4 w-px bg-gray-700 hidden sm:block" />
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  icon={Package}
+                  isLoading={isBulkUpdating}
+                  disabled={isBulkUpdating}
+                  onClick={() => handleBulkUpdate('Packed')}
+                  className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl px-3 py-1.5 shadow-sm"
+                >
+                  Mark Packed
+                </Button>
+
+                <Button
+                  size="sm"
+                  icon={Truck}
+                  isLoading={isBulkUpdating}
+                  disabled={isBulkUpdating}
+                  onClick={() => handleBulkUpdate('Dispatched')}
+                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl px-3 py-1.5 shadow-sm"
+                >
+                  Mark Dispatched
+                </Button>
+
+                <Button
+                  size="sm"
+                  icon={CheckSquare}
+                  isLoading={isBulkUpdating}
+                  disabled={isBulkUpdating}
+                  onClick={() => handleBulkUpdate('Delivered')}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl px-3 py-1.5 shadow-sm"
+                >
+                  Mark Delivered
+                </Button>
+
+                <button
+                  type="button"
+                  disabled={isBulkUpdating}
+                  onClick={() => setSelectedOrderIds([])}
+                  className="text-xs text-gray-400 hover:text-white font-bold ml-2 underline underline-offset-2 transition-colors cursor-pointer"
+                >
+                  Clear
+                </button>
               </div>
             </div>
           )}
