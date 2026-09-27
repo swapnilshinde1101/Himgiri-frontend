@@ -241,6 +241,12 @@ export default function AccountReportsPage() {
               <span>CGST: ₹{(summary?.totalCgst ?? 0).toFixed(1)}</span>
               <span>•</span>
               <span>SGST: ₹{(summary?.totalSgst ?? 0).toFixed(1)}</span>
+              {!!summary?.totalIgst && (
+                <>
+                  <span>•</span>
+                  <span>IGST: ₹{summary.totalIgst.toFixed(1)}</span>
+                </>
+              )}
             </div>
           </div>
           <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
