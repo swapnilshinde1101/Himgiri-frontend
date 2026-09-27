@@ -11,7 +11,8 @@ import {
   Calendar, 
   CheckCircle,
   Clock,
-  XCircle
+  XCircle,
+  Truck
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import Badge from '../../components/shared/Badge';
@@ -21,6 +22,7 @@ export default function InvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Success'); // default filter to paid invoices
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadingChallanId, setDownloadingChallanId] = useState<string | null>(null);
 
   // Fetch orders from API
   const { data: ordersRes, isLoading, refetch, isRefetching } = useQuery({
@@ -54,6 +56,21 @@ export default function InvoicesPage() {
       toast.error('Failed to download invoice. Check vendor GSTIN settings.', { id: toastId });
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  // Handle Delivery Challan Download
+  const handleDownloadDeliveryChallan = async (id: string, invoiceNo: string) => {
+    setDownloadingChallanId(id);
+    const toastId = toast.loading(`Generating delivery challan ${invoiceNo} PDF...`);
+    try {
+      await orderService.downloadDeliveryChallan(id, invoiceNo);
+      toast.success('Delivery Challan downloaded successfully!', { id: toastId });
+    } catch (error: any) {
+      console.error(error);
+      toast.error('Failed to download delivery challan.', { id: toastId });
+    } finally {
+      setDownloadingChallanId(null);
     }
   };
 
@@ -139,7 +156,7 @@ export default function InvoicesPage() {
                   <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest">Recipient Details</th>
                   <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest text-right">Grand Total</th>
                   <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest text-center">Payment Status</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest text-center">Actions</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-himgiri-secondary-dark/40 uppercase tracking-widest text-center">Print / Download</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -176,18 +193,32 @@ export default function InvoicesPage() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => handleDownloadInvoice(order.id, order.invoiceNumber)}
-                        disabled={downloadingId !== null}
-                        className="p-2 bg-blue-50 text-himgiri-primary hover:bg-himgiri-primary hover:text-white rounded-xl active:scale-95 transition-all inline-flex items-center justify-center disabled:opacity-60"
-                        title="Download tax invoice PDF"
-                      >
-                        {downloadingId === order.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Download className="h-4 w-4" />
-                        )}
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleDownloadInvoice(order.id, order.invoiceNumber)}
+                          disabled={downloadingId !== null || downloadingChallanId !== null}
+                          className="p-2 bg-blue-50 text-himgiri-primary hover:bg-himgiri-primary hover:text-white rounded-xl active:scale-95 transition-all inline-flex items-center justify-center disabled:opacity-60"
+                          title="Download Tax Invoice (Rule 46 PDF)"
+                        >
+                          {downloadingId === order.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <FileText className="h-4 w-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDownloadDeliveryChallan(order.id, order.invoiceNumber)}
+                          disabled={downloadingId !== null || downloadingChallanId !== null}
+                          className="p-2 bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white rounded-xl active:scale-95 transition-all inline-flex items-center justify-center disabled:opacity-60"
+                          title="Download Delivery Challan (Rule 55 PDF)"
+                        >
+                          {downloadingChallanId === order.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Truck className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

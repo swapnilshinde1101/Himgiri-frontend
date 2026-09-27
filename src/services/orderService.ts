@@ -93,5 +93,26 @@ export const orderService = {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
+  },
+
+  downloadDeliveryChallan: async (id: string, invoiceNumber: string, mobile?: string | null, pincode?: string | null, token?: string | null): Promise<void> => {
+    const params = new URLSearchParams();
+    if (token) params.append('token', token);
+    if (mobile) params.append('mobile', mobile);
+    if (pincode) params.append('pincode', pincode);
+
+    const response = await api.get(`/orders/${id}/delivery-challan`, {
+      params,
+      responseType: 'blob'
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `DeliveryChallan_${invoiceNumber}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
 };

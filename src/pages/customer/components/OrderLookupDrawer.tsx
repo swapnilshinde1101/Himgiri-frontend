@@ -1,4 +1,4 @@
-import { X, Loader2, CreditCard } from 'lucide-react';
+import { X, Loader2, CreditCard, Truck } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface Props {
   isSearchingLookup: boolean;
   lookupResults: any[];
   onDownloadInvoice: (orderId: string, invoiceNumber: string) => void;
+  onDownloadDeliveryChallan?: (orderId: string, invoiceNumber: string) => void;
 }
 
 export default function OrderLookupDrawer({
@@ -23,7 +24,8 @@ export default function OrderLookupDrawer({
   onSubmit,
   isSearchingLookup,
   lookupResults,
-  onDownloadInvoice
+  onDownloadInvoice,
+  onDownloadDeliveryChallan
 }: Props) {
   if (!isOpen) return null;
 
@@ -126,14 +128,26 @@ export default function OrderLookupDrawer({
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => onDownloadInvoice(order.id, order.invoiceNumber)}
-                    className="w-full py-2 bg-blue-50 border border-blue-100 hover:bg-blue-100 text-blue-700 font-extrabold text-[10px] rounded-xl tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 active:scale-98"
-                  >
-                    <CreditCard className="h-3.5 w-3.5" />
-                    <span>Download Invoice</span>
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onDownloadInvoice(order.id, order.invoiceNumber)}
+                      className="flex-1 py-2 bg-blue-50 border border-blue-100 hover:bg-blue-100 text-blue-700 font-extrabold text-[10px] rounded-xl tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                    >
+                      <CreditCard className="h-3.5 w-3.5" />
+                      <span>Invoice</span>
+                    </button>
+                    {onDownloadDeliveryChallan && (
+                      <button
+                        type="button"
+                        onClick={() => onDownloadDeliveryChallan(order.id, order.invoiceNumber)}
+                        className="flex-1 py-2 bg-sky-50 border border-sky-100 hover:bg-sky-100 text-sky-700 font-extrabold text-[10px] rounded-xl tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                      >
+                        <Truck className="h-3.5 w-3.5" />
+                        <span>Challan</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

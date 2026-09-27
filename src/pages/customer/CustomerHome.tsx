@@ -492,6 +492,16 @@ export default function CustomerHome() {
     }
   };
 
+  const handleDownloadLookupChallan = async (orderId: string, invoiceNumber: string) => {
+    toast.loading('Downloading delivery challan...', { id: 'lookup-challan' });
+    try {
+      await orderService.downloadDeliveryChallan(orderId, invoiceNumber, lookupMobile, lookupPincode);
+      toast.success('Delivery Challan downloaded successfully!', { id: 'lookup-challan' });
+    } catch (err: any) {
+      toast.error('Failed to download delivery challan.', { id: 'lookup-challan' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50">
       {/* Navbar Header */}
@@ -712,6 +722,7 @@ export default function CustomerHome() {
         isSearchingLookup={isSearchingLookup}
         lookupResults={lookupResults}
         onDownloadInvoice={handleDownloadLookupInvoice}
+        onDownloadDeliveryChallan={handleDownloadLookupChallan}
       />
     </div>
   );

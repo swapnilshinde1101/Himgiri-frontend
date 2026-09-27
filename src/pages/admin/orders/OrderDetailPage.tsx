@@ -23,7 +23,8 @@ import {
   Layers,
   Sparkles,
   Home,
-  School
+  School,
+  Truck
 } from 'lucide-react';
 import type { OrderStatus, PaymentStatus } from '../../../types';
 import HasPermission, { usePermission } from '../../../components/shared/HasPermission';
@@ -47,6 +48,7 @@ export default function OrderDetailPage() {
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadingChallan, setIsDownloadingChallan] = useState(false);
   const [isFlaggingStockOut, setIsFlaggingStockOut] = useState(false);
 
   // Fetch Order
@@ -167,6 +169,29 @@ export default function OrderDetailPage() {
       }
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleDownloadDeliveryChallan = async () => {
+    if (!order) return;
+    try {
+      setIsDownloadingChallan(true);
+      await adminOrderService.downloadDeliveryChallan(order.id, order.invoiceNumber);
+      toast.success('Delivery Challan downloaded');
+    } catch (err: any) {
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const errorJson = JSON.parse(text);
+          toast.error(errorJson.message || 'Delivery Challan could not be generated');
+        } catch {
+          toast.error('Delivery Challan could not be generated');
+        }
+      } else {
+        toast.error(err?.response?.data?.message || 'Delivery Challan could not be generated');
+      }
+    } finally {
+      setIsDownloadingChallan(false);
     }
   };
 
@@ -440,7 +465,7 @@ export default function OrderDetailPage() {
             </div>
           </div>
 
-          <div className="flex gap-2 w-full md:w-auto">
+          <div className="flex gap-2 w-full md:w-auto flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -453,12 +478,22 @@ export default function OrderDetailPage() {
             <Button
               variant="outline"
               size="sm"
+              icon={Truck}
+              isLoading={isDownloadingChallan}
+              onClick={handleDownloadDeliveryChallan}
+              className="rounded-xl border-gray-250 text-xs font-bold flex-1 md:flex-none text-sky-700 hover:text-sky-800"
+            >
+              Delivery Challan
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               icon={FileText}
               isLoading={isDownloading}
               onClick={handleDownloadInvoice}
               className="rounded-xl border-gray-250 text-xs font-bold flex-1 md:flex-none"
             >
-              Invoice PDF
+              Tax Invoice PDF
             </Button>
           </div>
         </div>
