@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { inventoryService } from '../../services/inventoryService';
+import { reportService } from '../../services/reportService';
 import { 
   History, 
   Search, 
@@ -45,7 +46,14 @@ export default function InventoryReportsPage() {
     enabled: activeTab === 'stock-audit',
   });
 
-  // Fetch all items for Valuation and Reorder reports
+  // Fetch backend real-time database valuation aggregations
+  const { data: valuationRes, isLoading: valuationLoading, refetch: refetchValuation } = useQuery({
+    queryKey: ['inventory-valuation-report'],
+    queryFn: () => reportService.getInventoryValuationReport(),
+    enabled: activeTab === 'valuation',
+  });
+
+  // Fetch items for Reorder alerts and CSV exports
   const { data: itemsRes, isLoading: itemsLoading, refetch: refetchItems } = useQuery({
     queryKey: ['all-items-report'],
     queryFn: () => inventoryService.getItems({ pageNumber: 1, pageSize: 1000, onlyInitializedStock: true, isActive: true }),
@@ -68,10 +76,11 @@ export default function InventoryReportsPage() {
   });
 
   // ── Inventory Valuation Computations ──
-  const totalStockQty = items.reduce((sum, item) => sum + item.stockQty, 0);
-  const totalPurchaseValue = items.reduce((sum, item) => sum + ((item.purchasePrice || 0) * item.stockQty), 0);
-  const totalRetailValue = items.reduce((sum, item) => sum + (item.mrp * item.stockQty), 0);
-  const totalMarginValue = totalRetailValue - totalPurchaseValue;
+  const valuationData = valuationRes?.data;
+  const totalStockQty = valuationData?.totalStockQty ?? items.reduce((sum, item) => sum + item.stockQty, 0);
+  const totalPurchaseValue = valuationData?.totalPurchaseValue ?? items.reduce((sum, item) => sum + ((item.purchasePrice || 0) * item.stockQty), 0);
+  const totalRetailValue = valuationData?.totalRetailValue ?? items.reduce((sum, item) => sum + (item.mrp * item.stockQty), 0);
+  const totalMarginValue = valuationData?.totalPotentialMargin ?? (totalRetailValue - totalPurchaseValue);
 
   // Valuation category breakdown
   const categoryBreakdown = items.reduce((acc: Record<string, { count: number; qty: number; value: number }>, item) => {
@@ -84,6 +93,20 @@ export default function InventoryReportsPage() {
     acc[cat].value += item.mrp * item.stockQty;
     return acc;
   }, {});
+
+  const categoriesList = valuationData?.categoryBreakdown
+    ? valuationData.categoryBreakdown.map((c) => ({
+        name: c.categoryName,
+        count: c.itemCount,
+        qty: c.totalStockQty,
+        value: c.totalRetailValue
+      }))
+    : Object.entries(categoryBreakdown).map(([categoryName, stats]) => ({
+        name: categoryName,
+        count: stats.count,
+        qty: stats.qty,
+        value: stats.value
+      }));
 
   // ── Reorder Alerts Filtering ──
   const reorderItems = items.filter(item => item.stockQty < 10); // Low Stock + Out of Stock
@@ -378,7 +401,7 @@ export default function InventoryReportsPage() {
         {/* TAB 2: INVENTORY VALUATION */}
         {activeTab === 'valuation' && (
           <div className="space-y-8 animate-in fade-in duration-300">
-            {itemsLoading ? (
+            {valuationLoading || itemsLoading ? (
               <div className="bg-white rounded-3xl shadow-soft border border-gray-100 p-12 flex items-center justify-center min-h-[300px]">
                 <div className="flex flex-col items-center gap-3">
                   <Loader2 className="h-8 w-8 text-himgiri-primary animate-spin" />
@@ -442,17 +465,17 @@ export default function InventoryReportsPage() {
                   </div>
 
                   <div className="space-y-5">
-                    {Object.entries(categoryBreakdown).map(([categoryName, stats]) => {
-                      const percentage = totalRetailValue > 0 ? (stats.value / totalRetailValue) * 100 : 0;
+                    {categoriesList.map((cat) => {
+                      const percentage = totalRetailValue > 0 ? (cat.value / totalRetailValue) * 100 : 0;
                       return (
-                        <div key={categoryName} className="space-y-2">
+                        <div key={cat.name} className="space-y-2">
                           <div className="flex justify-between items-center text-sm">
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-gray-800">{categoryName}</span>
-                              <span className="text-xs text-gray-400">({stats.count} items, {stats.qty} in stock)</span>
+                              <span className="font-bold text-gray-800">{cat.name}</span>
+                              <span className="text-xs text-gray-400">({cat.count} items, {cat.qty} in stock)</span>
                             </div>
                             <span className="font-mono font-bold text-gray-900">
-                              ₹{stats.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })} <span className="text-xs text-gray-400 font-medium">({percentage.toFixed(1)}%)</span>
+                              ₹{cat.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })} <span className="text-xs text-gray-400 font-medium">({percentage.toFixed(1)}%)</span>
                             </span>
                           </div>
                           
@@ -461,11 +484,11 @@ export default function InventoryReportsPage() {
                             <div 
                               className={clsx(
                                 "h-full rounded-full transition-all duration-500",
-                                categoryName === 'Textbook' && 'bg-blue-500',
-                                categoryName === 'Stationery' && 'bg-amber-500',
-                                categoryName === 'Bag' && 'bg-purple-500',
-                                categoryName === 'Journal' && 'bg-emerald-500',
-                                categoryName !== 'Textbook' && categoryName !== 'Stationery' && categoryName !== 'Bag' && categoryName !== 'Journal' && 'bg-slate-400'
+                                cat.name === 'Textbook' && 'bg-blue-500',
+                                cat.name === 'Stationery' && 'bg-amber-500',
+                                cat.name === 'Bag' && 'bg-purple-500',
+                                cat.name === 'Journal' && 'bg-emerald-500',
+                                cat.name !== 'Textbook' && cat.name !== 'Stationery' && cat.name !== 'Bag' && cat.name !== 'Journal' && 'bg-slate-400'
                               )}
                               style={{ width: `${percentage}%` }}
                             />

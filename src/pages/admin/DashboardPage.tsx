@@ -40,23 +40,24 @@ export default function DashboardPage() {
     {
       label: "TOTAL ORDERS",
       value: stats?.totalOrders ?? 0,
+      link: "/admin/accounts/orders",
       icon: ShoppingBag,
-      color: "gray",
-      badge: "Phase 3",
+      color: "blue",
     },
     {
       label: "REVENUE TODAY",
-      value: stats?.revenueToday !== undefined ? `₹${stats.revenueToday}` : "₹0",
+      value: stats?.revenueToday !== undefined ? `₹${stats.revenueToday.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : "₹0",
+      link: "/admin/reports/accounts",
       icon: IndianRupee,
-      color: "gray",
-      badge: "Phase 3",
+      color: "emerald",
     },
     {
       label: "PENDING ORDERS",
       value: stats?.pendingOrders ?? 0,
+      link: "/admin/accounts/orders",
       icon: Clock,
-      color: "gray",
-      badge: "Phase 3",
+      color: "amber",
+      alert: (stats?.pendingOrders ?? 0) > 0,
     },
   ];
 
@@ -72,7 +73,6 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {dashboardCards.map((card, idx) => {
           const CardIcon = card.icon;
-          const isPhase3 = !!card.badge;
 
           let bgClass = "bg-white border-gray-100";
           let textClass = "text-gray-900";
@@ -87,12 +87,10 @@ export default function DashboardPage() {
             bgClass = "bg-red-50/50 border-red-100 hover:bg-red-50";
             textClass = "text-red-600";
             iconBgClass = "bg-red-100 text-red-700";
-          } else if (isPhase3) {
-            bgClass = "bg-gray-50/50 border-gray-200/60 opacity-60 hover:opacity-85 cursor-not-allowed";
-            textClass = "text-gray-400";
-            iconBgClass = "bg-gray-200/40 text-gray-400";
           } else if (card.color === "blue") {
             iconBgClass = "bg-blue-50 text-blue-600";
+          } else if (card.color === "emerald") {
+            iconBgClass = "bg-emerald-50 text-emerald-600";
           }
 
           const cardContent = (
@@ -102,26 +100,22 @@ export default function DashboardPage() {
                   <span className={clsx("text-xs font-bold uppercase tracking-wider block", labelColorClass)}>
                     {card.label}
                   </span>
-                  {card.badge && (
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 uppercase tracking-widest border border-gray-300/40">
-                      {card.badge}
-                    </span>
-                  )}
                 </div>
                 <span className={clsx("text-3xl font-black font-mono block", textClass)}>
                   {card.value}
                 </span>
-                {!isPhase3 && card.link && (
+                {card.link && (
                   <span className={clsx(
                     "text-xs font-bold block group-hover:underline",
-                    card.alert ? "text-amber-700" : card.danger ? "text-red-700" : "text-himgiri-primary"
+                    card.label === "TOTAL ORDERS" ? "text-blue-600" :
+                    card.label === "REVENUE TODAY" ? "text-emerald-600" :
+                    card.alert ? "text-amber-700" : 
+                    card.danger ? "text-red-700" : "text-himgiri-primary"
                   )}>
-                    {card.alert ? "Replenish Stock Immediately" : card.danger ? "Fix Stock-Outs" : "Manage Catalog "}
-                  </span>
-                )}
-                {isPhase3 && (
-                  <span className="text-xs text-gray-400 font-medium block">
-                    Under Development
+                    {card.label === "TOTAL ORDERS" ? "View All Orders →" :
+                     card.label === "REVENUE TODAY" ? "View Accounts Report →" :
+                     card.alert ? "Review Action Items →" : 
+                     card.danger ? "Fix Stock-Outs →" : "Manage Catalog →"}
                   </span>
                 )}
               </div>
@@ -131,7 +125,7 @@ export default function DashboardPage() {
             </div>
           );
 
-          if (isPhase3 || !card.link) {
+          if (!card.link) {
             return (
               <div 
                 key={idx} 
