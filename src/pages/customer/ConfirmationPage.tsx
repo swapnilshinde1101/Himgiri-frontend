@@ -14,6 +14,7 @@ export default function ConfirmationPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'pending' | 'failed' | 'timeout'>('loading');
   const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
   const pollCountRef = useRef(0);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!orderId) {
@@ -49,13 +50,13 @@ export default function ConfirmationPage() {
 
         pollCountRef.current += 1;
         setStatus('pending');
-        setTimeout(pollStatus, 3000);
+        pollTimeoutRef.current = setTimeout(pollStatus, 3000);
 
       } catch (err) {
         if (!isMounted) return;
         pollCountRef.current += 1;
         if (pollCountRef.current < 20) {
-          setTimeout(pollStatus, 3000);
+          pollTimeoutRef.current = setTimeout(pollStatus, 3000);
         } else {
           setStatus('timeout');
         }
@@ -65,6 +66,9 @@ export default function ConfirmationPage() {
     pollStatus();
     return () => {
       isMounted = false;
+      if (pollTimeoutRef.current) {
+        clearTimeout(pollTimeoutRef.current);
+      }
     };
   }, [orderId, navigate]);
 

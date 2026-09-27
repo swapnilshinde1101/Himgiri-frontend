@@ -49,7 +49,13 @@ export const orderService = {
     if (mobile) params.append('mobile', mobile);
     if (pincode) params.append('pincode', pincode);
     const queryString = params.toString() ? `?${params.toString()}` : '';
-    const { data } = await api.get<ApiResponse<any>>(`/orders/${orderId}/lookup${queryString}`);
+    // skipGlobalToast: this is polled repeatedly by ConfirmationPage while waiting for the
+    // payment webhook — a transient failure (rate limit, network blip) is already handled by
+    // its own retry loop, so a global error toast on top would just spam the customer right
+    // after they've paid.
+    const { data } = await api.get<ApiResponse<any>>(`/orders/${orderId}/lookup${queryString}`, {
+      skipGlobalToast: true
+    } as any);
     return data;
   },
 
