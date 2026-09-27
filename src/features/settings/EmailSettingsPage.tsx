@@ -60,6 +60,7 @@ export default function EmailSettingsPage(): JSX.Element {
   // Form state
   const [smtpHost, setSmtpHost] = useState('');
   const [smtpPort, setSmtpPort] = useState(587);
+  const [smtpUsername, setSmtpUsername] = useState('');
   const [senderEmail, setSenderEmail] = useState('');
   const [senderName, setSenderName] = useState('');
   const [smtpPassword, setSmtpPassword] = useState('');
@@ -85,6 +86,7 @@ export default function EmailSettingsPage(): JSX.Element {
     if (settings) {
       setSmtpHost(settings.smtpHost || '');
       setSmtpPort(settings.smtpPort || 587);
+      setSmtpUsername(settings.smtpUsername || '');
       setSenderEmail(settings.senderEmail || '');
       setSenderName(settings.senderName || 'Himgiri Goods & Uniforms');
       setEnableSsl(settings.enableSsl);
@@ -120,6 +122,7 @@ export default function EmailSettingsPage(): JSX.Element {
       const payload = {
         smtpHost: smtpHost.trim(),
         smtpPort: Number(smtpPort),
+        smtpUsername: smtpUsername.trim() || undefined,
         senderEmail: senderEmail.trim(),
         senderName: senderName.trim(),
         smtpPassword: smtpPassword.includes('•••') ? undefined : smtpPassword,
@@ -151,6 +154,7 @@ export default function EmailSettingsPage(): JSX.Element {
         toEmail: testRecipient.trim(),
         smtpHost: smtpHost.trim(),
         smtpPort: Number(smtpPort),
+        smtpUsername: smtpUsername.trim() || undefined,
         senderEmail: senderEmail.trim(),
         senderName: senderName.trim(),
         smtpPassword: smtpPassword.includes('•••') ? undefined : smtpPassword,
@@ -322,6 +326,24 @@ export default function EmailSettingsPage(): JSX.Element {
               placeholder="Himgiri Goods & Uniforms"
               className="w-full px-3.5 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
             />
+          </div>
+
+          {/* SMTP Auth Username */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-gray-700">
+              SMTP Auth Username <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={smtpUsername}
+              onChange={(e) => setSmtpUsername(e.target.value)}
+              placeholder={`Defaults to ${senderEmail || 'Sender Email'}`}
+              className="w-full px-3.5 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            />
+            <p className="text-[11px] text-gray-500">
+              Leave blank if your provider logs in with the sender email (e.g. Gmail). Required for
+              providers like SendGrid (use <code>apikey</code>) where the login isn't the sender address.
+            </p>
           </div>
 
           {/* SMTP Password */}

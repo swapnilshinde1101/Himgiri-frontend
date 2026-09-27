@@ -5,6 +5,7 @@ export interface EmailSettingsDto {
   id: string;
   smtpHost: string;
   smtpPort: number;
+  smtpUsername?: string | null;
   senderEmail: string;
   senderName: string;
   enableSsl: boolean;
@@ -15,6 +16,7 @@ export interface EmailSettingsDto {
 export interface UpdateEmailSettingsRequest {
   smtpHost: string;
   smtpPort: number;
+  smtpUsername?: string;
   senderEmail: string;
   senderName: string;
   smtpPassword?: string;
@@ -26,6 +28,7 @@ export interface TestEmailRequest {
   toEmail: string;
   smtpHost?: string;
   smtpPort?: number;
+  smtpUsername?: string;
   senderEmail?: string;
   senderName?: string;
   smtpPassword?: string;
