@@ -25,6 +25,7 @@ interface Props {
   igstAmount: number;
   grandTotal: number;
   onConfirm: () => void;
+  isPlacingOrder: boolean;
 }
 
 export default function CheckoutConfirmationModal({
@@ -48,7 +49,8 @@ export default function CheckoutConfirmationModal({
   sgstAmount,
   igstAmount,
   grandTotal,
-  onConfirm
+  onConfirm,
+  isPlacingOrder
 }: Props) {
   if (!isOpen) return null;
 
@@ -190,6 +192,7 @@ export default function CheckoutConfirmationModal({
             variant="outline"
             size="md"
             onClick={onClose}
+            disabled={isPlacingOrder}
             className="rounded-2xl font-bold border-gray-250"
           >
             Back to Edit
@@ -199,6 +202,7 @@ export default function CheckoutConfirmationModal({
             variant="primary"
             size="md"
             onClick={onConfirm}
+            isLoading={isPlacingOrder}
             className="rounded-2xl font-black px-6 shadow-md shadow-himgiri-primary/20"
           >
             Confirm & Pay ₹{grandTotal.toFixed(2)}

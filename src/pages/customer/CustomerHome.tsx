@@ -717,6 +717,7 @@ export default function CustomerHome() {
         igstAmount={igstAmount}
         grandTotal={grandTotal}
         onConfirm={executeOrderPlacement}
+        isPlacingOrder={isPlacingOrder}
       />
 
       {/* Lookup & Tracking Sliding Drawer */}
