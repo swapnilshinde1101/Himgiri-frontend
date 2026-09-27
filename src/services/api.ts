@@ -118,6 +118,22 @@ api.interceptors.response.use(
         toast.error(message);
         break;
 
+      case 429: {
+        // Transient, self-resolving — the backend's OnRejected handler already supplies a
+        // friendly `message`; only build our own if an older deployment returns an empty body.
+        if (message !== 'Something went wrong') {
+          toast.error(message);
+        } else {
+          const retryAfterSeconds = Number(error.response?.headers?.['retry-after']);
+          toast.error(
+            Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+              ? `You're doing that too quickly. Please wait ${retryAfterSeconds}s and try again.`
+              : "You're doing that too quickly. Please wait a moment and try again."
+          );
+        }
+        break;
+      }
+
       case 500:
         // Server Error — include Trace ID if available for diagnostic reference
         const errorId = data?.appError;

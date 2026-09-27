@@ -68,9 +68,12 @@ export const orderService = {
   },
 
   lookupOrders: async (mobile: string, pincode: string): Promise<ApiResponse<OrderSummary[]>> => {
+    // skipGlobalToast: the caller shows its own contextual toast — without this, errors here
+    // (e.g. a 429 rate limit) would show twice.
     const { data } = await api.get<ApiResponse<OrderSummary[]>>('/orders/lookup', {
-      params: { mobile, pincode }
-    });
+      params: { mobile, pincode },
+      skipGlobalToast: true
+    } as any);
     return data;
   },
 
@@ -82,8 +85,9 @@ export const orderService = {
 
     const response = await api.get(`/orders/${id}/invoice`, {
       params,
-      responseType: 'blob'
-    });
+      responseType: 'blob',
+      skipGlobalToast: true
+    } as any);
     const blob = new Blob([response.data], { type: 'application/pdf' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -103,8 +107,9 @@ export const orderService = {
 
     const response = await api.get(`/orders/${id}/delivery-challan`, {
       params,
-      responseType: 'blob'
-    });
+      responseType: 'blob',
+      skipGlobalToast: true
+    } as any);
     const blob = new Blob([response.data], { type: 'application/pdf' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');

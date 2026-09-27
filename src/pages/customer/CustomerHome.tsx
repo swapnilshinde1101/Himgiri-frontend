@@ -498,7 +498,19 @@ export default function CustomerHome() {
       await orderService.downloadDeliveryChallan(orderId, invoiceNumber, lookupMobile, lookupPincode);
       toast.success('Delivery Challan downloaded successfully!', { id: 'lookup-challan' });
     } catch (err: any) {
-      toast.error('Failed to download delivery challan.', { id: 'lookup-challan' });
+      let errorMsg = 'Failed to download delivery challan.';
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const errorJson = JSON.parse(text);
+          errorMsg = errorJson.message || errorMsg;
+        } catch {
+          // Keep default
+        }
+      } else if (err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      }
+      toast.error(errorMsg, { id: 'lookup-challan' });
     }
   };
 
