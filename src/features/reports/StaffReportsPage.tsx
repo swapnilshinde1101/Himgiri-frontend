@@ -16,16 +16,19 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import Badge from '../../components/shared/Badge';
+import { usePermission } from '../../components/shared/HasPermission';
 
 export default function StaffReportsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const currentUser = useAuthStore((s) => s.user);
   const isSuperAdmin = currentUser?.role === 'SuperAdmin';
+  const { can } = usePermission();
+  const canViewAudit = can('reports:staff_audit') || isSuperAdmin;
 
   const { data: staffDataRes, isLoading, refetch } = useQuery({
     queryKey: ['staff-activity-report'],
     queryFn: () => reportService.getStaffActivityReport(100),
-    enabled: isSuperAdmin,
+    enabled: canViewAudit,
   });
 
   const staffMembers = staffDataRes?.data?.staffMembers || [];
@@ -52,7 +55,7 @@ export default function StaffReportsPage() {
           </p>
         </div>
 
-        {isSuperAdmin && (
+        {canViewAudit && (
           <button
             onClick={() => refetch()}
             className="p-2 rounded-xl bg-white border border-gray-150 text-gray-500 hover:text-himgiri-primary hover:bg-gray-50 transition-all shadow-sm"
@@ -63,12 +66,12 @@ export default function StaffReportsPage() {
         )}
       </div>
 
-      {!isSuperAdmin ? (
+      {!canViewAudit ? (
         <div className="bg-amber-50 border border-amber-200 rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-3">
           <Lock className="h-8 w-8 text-amber-600" />
-          <h3 className="font-bold text-amber-900 text-sm">SuperAdmin Access Required</h3>
+          <h3 className="font-bold text-amber-900 text-sm">Audit Stream Permission Required</h3>
           <p className="text-amber-700 text-xs max-w-md">
-            Staff directory records and real-time system audit trails are restricted to SuperAdmin accounts in accordance with Himgiri's security policy.
+            Staff directory records and real-time system audit trails are restricted to accounts with the <code>reports:staff_audit</code> permission in accordance with Himgiri's security policy.
           </p>
         </div>
       ) : null}
@@ -205,9 +208,9 @@ export default function StaffReportsPage() {
               </div>
             )}
 
-            {!isSuperAdmin ? (
+            {!canViewAudit ? (
               <div className="text-center py-16 text-xs text-gray-400 font-medium">
-                Audit stream restricted to SuperAdmin.
+                Audit stream restricted (requires reports:staff_audit).
               </div>
             ) : isLoading ? (
               <div className="py-16 flex items-center justify-center text-gray-400">

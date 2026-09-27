@@ -26,6 +26,7 @@ import {
   School
 } from 'lucide-react';
 import type { OrderStatus, PaymentStatus } from '../../../types';
+import HasPermission, { usePermission } from '../../../components/shared/HasPermission';
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +34,11 @@ export default function OrderDetailPage() {
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((s) => s.user);
   const isSuperAdmin = currentUser?.role === 'SuperAdmin';
+
+  const { can } = usePermission();
+  const canRefund = can('orders:refund');
+  const canFulfill = can('orders:fulfill');
+  const canAddNotes = can('orders:notes');
 
   const [noteText, setNoteText] = useState('');
   const [statusNoteText, setStatusNoteText] = useState('');
@@ -328,28 +334,31 @@ export default function OrderDetailPage() {
     if (!status) return [];
     const transitions: OrderStatus[] = [];
 
-    // Confirmed -> Packed
-    if (status === 'Confirmed') {
-      transitions.push('Packed');
-    }
-    // Packed -> Dispatched
-    if (status === 'Packed') {
-      transitions.push('Dispatched');
-    }
-    // Dispatched -> Delivered
-    if (status === 'Dispatched') {
-      transitions.push('Delivered');
+    // Fulfill permissions guard normal lifecycle progression
+    if (canFulfill) {
+      // Confirmed -> Packed
+      if (status === 'Confirmed') {
+        transitions.push('Packed');
+      }
+      // Packed -> Dispatched
+      if (status === 'Packed') {
+        transitions.push('Dispatched');
+      }
+      // Dispatched -> Delivered
+      if (status === 'Dispatched') {
+        transitions.push('Delivered');
+      }
+
+      // Confirmed/Packed/Dispatched -> StockOut
+      if (status === 'Confirmed' || status === 'Packed' || status === 'Dispatched') {
+        transitions.push('StockOut');
+      }
     }
 
-    // Confirmed/Packed/Dispatched -> StockOut
-    if (status === 'Confirmed' || status === 'Packed' || status === 'Dispatched') {
-      transitions.push('StockOut');
-    }
-
-    // Any non-terminal (Pending/Confirmed/Packed/Dispatched/Delivered) -> Refunded (SuperAdmin only)
-    // Dispatched and Delivered orders can be refunded by SuperAdmin with automated stock replenishment
+    // Any non-terminal (Pending/Confirmed/Packed/Dispatched/Delivered) -> Refunded (requires orders:refund)
+    // Dispatched and Delivered orders can be refunded with automated stock replenishment
     const isRefundable = status !== 'Refunded' && status !== 'StockOut';
-    if (isRefundable && isSuperAdmin) {
+    if (isRefundable && canRefund) {
       transitions.push('Refunded');
     }
 
@@ -394,7 +403,7 @@ export default function OrderDetailPage() {
   }
 
   const allowedTransitions = getAllowedTransitions(order.status);
-  const isTerminalState = order.status === 'Refunded' || order.status === 'StockOut' || (order.status === 'Delivered' && !isSuperAdmin);
+  const isTerminalState = order.status === 'Refunded' || order.status === 'StockOut' || (order.status === 'Delivered' && !canRefund);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -655,27 +664,31 @@ export default function OrderDetailPage() {
             )}
 
             {/* Note addition textarea */}
-            <form onSubmit={handleAddNote} className="space-y-3 pt-3 border-t border-gray-100">
-              <textarea
-                placeholder="Add an internal note..."
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all min-h-[80px]"
-              />
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  icon={Plus}
-                  isLoading={addNoteMutation.isPending}
-                  disabled={!noteText.trim()}
-                  className="rounded-xl font-bold"
-                >
-                  Add Note
-                </Button>
-              </div>
-            </form>
+            <HasPermission code="orders:notes" fallback={
+              <p className="text-xs text-gray-400 italic pt-3 border-t border-gray-100">Adding internal fulfillment notes is restricted for your account.</p>
+            }>
+              <form onSubmit={handleAddNote} className="space-y-3 pt-3 border-t border-gray-100">
+                <textarea
+                  placeholder="Add an internal note..."
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-himgiri-primary/10 focus:bg-white focus:border-himgiri-primary transition-all min-h-[80px]"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    icon={Plus}
+                    isLoading={addNoteMutation.isPending}
+                    disabled={!noteText.trim()}
+                    className="rounded-xl font-bold"
+                  >
+                    Add Note
+                  </Button>
+                </div>
+              </form>
+            </HasPermission>
           </div>
 
         </div>
@@ -695,6 +708,10 @@ export default function OrderDetailPage() {
             {isTerminalState ? (
               <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-2xl p-4 text-center text-xs font-bold flex items-center justify-center gap-1.5">
                 <Sparkles className="h-4 w-4 text-emerald-600" /> Order is complete. No further updates.
+              </div>
+            ) : !canFulfill && !canRefund ? (
+              <div className="bg-amber-50/70 border border-amber-200 text-amber-800 rounded-2xl p-4 text-center text-xs font-bold">
+                🔒 Status updates are restricted for your account (requires <code>orders:fulfill</code> or <code>orders:refund</code> permission).
               </div>
             ) : (
               <form onSubmit={handleUpdateStatus} className="space-y-4">
@@ -787,18 +804,20 @@ export default function OrderDetailPage() {
             <div className="bg-white rounded-3xl shadow-soft border border-gray-150 p-6 space-y-4">
               <h2 className="text-xs font-black text-gray-900 tracking-widest uppercase">Quick Actions</h2>
               <div className="space-y-2">
-                {order.status !== 'StockOut' && order.status !== 'Delivered' && order.status !== 'Refunded' && (
-                  <Button
-                    variant="warning"
-                    size="md"
-                    icon={AlertTriangle}
-                    isLoading={isFlaggingStockOut}
-                    onClick={handleFlagStockOut}
-                    className="w-full rounded-xl font-bold bg-amber-500 hover:bg-amber-600"
-                  >
-                    Flag Stock Out
-                  </Button>
-                )}
+                <HasPermission code="orders:fulfill">
+                  {order.status !== 'StockOut' && order.status !== 'Delivered' && order.status !== 'Refunded' && (
+                    <Button
+                      variant="warning"
+                      size="md"
+                      icon={AlertTriangle}
+                      isLoading={isFlaggingStockOut}
+                      onClick={handleFlagStockOut}
+                      className="w-full rounded-xl font-bold bg-amber-500 hover:bg-amber-600"
+                    >
+                      Flag Stock Out
+                    </Button>
+                  )}
+                </HasPermission>
               </div>
             </div>
           )}
