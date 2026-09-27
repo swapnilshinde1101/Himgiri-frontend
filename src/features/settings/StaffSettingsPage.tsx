@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { staffService, StaffMember, CreateStaffPayload } from '../../services/staffService';
 import { useAuthStore } from '../../store/authStore';
-import type { AdminRole } from '../../types';
+import type { AdminRole, PermissionCode } from '../../types';
+import { ROLE_PERMISSIONS, PERMISSION_DESCRIPTIONS } from '../../utils/permissions';
 import { 
   Users, 
   UserPlus, 
@@ -25,10 +26,39 @@ import {
   Clock,
   Shield,
   Trash2,
-  Edit2
+  Edit2,
+  Sliders
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
+
+const MODULE_GROUPS: { name: string; description: string; permissions: PermissionCode[] }[] = [
+  {
+    name: 'Catalog & Products',
+    description: 'Products, inventory catalogs, school kits, and pricing controls',
+    permissions: ['catalog:view', 'catalog:manage', 'catalog:edit_pricing']
+  },
+  {
+    name: 'Inventory & Stock',
+    description: 'Stock inwarding, supplier logs, and threshold balance adjustments',
+    permissions: ['stock:view', 'stock:inward', 'stock:adjust']
+  },
+  {
+    name: 'Orders & Fulfillment',
+    description: 'Order lifecycle processing, packing, delivery notes, and refunds',
+    permissions: ['orders:view', 'orders:fulfill', 'orders:notes', 'orders:refund', 'orders:export']
+  },
+  {
+    name: 'Reports & Analytics',
+    description: 'Financial ledgers, inventory valuation, and security audit logs',
+    permissions: ['reports:accounts', 'reports:inventory', 'reports:staff_audit']
+  },
+  {
+    name: 'System & Administration',
+    description: 'System configurations, tax rates, and staff member privileges',
+    permissions: ['settings:view', 'settings:manage', 'staff:manage']
+  }
+];
 
 export default function StaffSettingsPage(): JSX.Element {
   const queryClient = useQueryClient();
@@ -44,7 +74,10 @@ export default function StaffSettingsPage(): JSX.Element {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [isCustomOverride, setIsCustomOverride] = useState(false);
 
   // Add form fields
   const [addName, setAddName] = useState('');
@@ -145,6 +178,20 @@ export default function StaffSettingsPage(): JSX.Element {
     }
   });
 
+  const updatePermissionsMutation = useMutation({
+    mutationFn: ({ id, permissions }: { id: string; permissions: string[] | null }) => 
+      staffService.updateStaffPermissions(id, permissions),
+    onSuccess: () => {
+      toast.success('Custom permissions updated successfully!');
+      queryClient.invalidateQueries({ queryKey: ['staff-list'] });
+      setIsPermissionsModalOpen(false);
+      setSelectedStaff(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update permissions.');
+    }
+  });
+
   const resetAddForm = () => {
     setAddName('');
     setAddEmail('');
@@ -163,6 +210,42 @@ export default function StaffSettingsPage(): JSX.Element {
     setSelectedStaff(staff);
     setNewPassword('');
     setIsPasswordModalOpen(true);
+  };
+
+  const handleOpenPermissionsModal = (staff: StaffMember) => {
+    setSelectedStaff(staff);
+    if (staff.customPermissions && staff.customPermissions.length > 0) {
+      setSelectedPermissions([...staff.customPermissions]);
+      setIsCustomOverride(true);
+    } else {
+      const defaults = ROLE_PERMISSIONS[staff.role] || [];
+      setSelectedPermissions([...defaults]);
+      setIsCustomOverride(false);
+    }
+    setIsPermissionsModalOpen(true);
+  };
+
+  const handleTogglePermission = (code: string) => {
+    setIsCustomOverride(true);
+    setSelectedPermissions((prev) =>
+      prev.includes(code) ? prev.filter((p) => p !== code) : [...prev, code]
+    );
+  };
+
+  const handleResetToRoleDefaults = () => {
+    if (!selectedStaff) return;
+    const defaults = ROLE_PERMISSIONS[selectedStaff.role] || [];
+    setSelectedPermissions([...defaults]);
+    setIsCustomOverride(false);
+  };
+
+  const handlePermissionsSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStaff) return;
+    updatePermissionsMutation.mutate({
+      id: selectedStaff.id,
+      permissions: isCustomOverride ? selectedPermissions : null
+    });
   };
 
   const handleCreateSubmit = (e: React.FormEvent) => {
@@ -453,7 +536,17 @@ export default function StaffSettingsPage(): JSX.Element {
 
                       {/* Role */}
                       <td className="py-4 px-4">
-                        {getRoleBadge(staff.role)}
+                        <div className="space-y-1">
+                          {getRoleBadge(staff.role)}
+                          {staff.customPermissions && staff.customPermissions.length > 0 && (
+                            <div>
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-50 text-purple-700 border border-purple-200">
+                                <ShieldCheck className="h-2.5 w-2.5 text-purple-600" />
+                                Custom ({staff.customPermissions.length})
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Status & Security */}
@@ -535,6 +628,15 @@ export default function StaffSettingsPage(): JSX.Element {
                               {staff.isActive ? <XCircle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                             </button>
                           )}
+
+                          {/* Customize Permissions Button */}
+                          <button
+                            onClick={() => handleOpenPermissionsModal(staff)}
+                            className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:text-purple-600 hover:bg-purple-50 transition-all"
+                            title="Customize Permissions"
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                          </button>
 
                           {/* Change Role Button */}
                           <button
@@ -927,6 +1029,160 @@ export default function StaffSettingsPage(): JSX.Element {
                 Close Guide
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Customize Staff Permissions ── */}
+      {isPermissionsModalOpen && selectedStaff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-gray-150 space-y-4 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex justify-between items-start pb-3 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                    Customize Permissions
+                    {getRoleBadge(selectedStaff.role)}
+                  </h3>
+                  <p className="text-xs text-gray-500 font-medium">
+                    Configure granular overrides for <strong className="text-gray-900">{selectedStaff.name}</strong> ({selectedStaff.email})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPermissionsModalOpen(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Status & Helper Info Banner */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex-shrink-0">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className={clsx(
+                    "text-[10px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider",
+                    isCustomOverride ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                  )}>
+                    {isCustomOverride ? "Custom Override Active" : "Role Defaults Active"}
+                  </span>
+                  <span className="text-xs font-bold text-gray-700">
+                    {selectedPermissions.length} of 17 Permissions Enabled
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500 font-medium">
+                  {isCustomOverride 
+                    ? "This staff member has tailored privileges overriding their default role."
+                    : "Currently adhering strictly to default role privileges."}
+                </p>
+              </div>
+
+              {isCustomOverride && (
+                <button
+                  type="button"
+                  onClick={handleResetToRoleDefaults}
+                  className="px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl border border-indigo-200/60 transition-all"
+                >
+                  Reset to Role Defaults
+                </button>
+              )}
+            </div>
+
+            {/* Scrollable Permissions Checklist */}
+            <form onSubmit={handlePermissionsSubmit} className="space-y-4 overflow-y-auto pr-1 flex-1 scrollbar-thin">
+              {MODULE_GROUPS.map((group) => {
+                const groupActiveCount = group.permissions.filter(p => selectedPermissions.includes(p)).length;
+                return (
+                  <div key={group.name} className="border border-gray-200/80 rounded-2xl overflow-hidden bg-white shadow-xs">
+                    <div className="px-4 py-2 bg-gray-50/70 border-b border-gray-150 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-black text-gray-800 uppercase tracking-wider">{group.name}</span>
+                        <p className="text-[10px] text-gray-500 font-medium">{group.description}</p>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-white border border-gray-200 text-gray-600">
+                        {groupActiveCount} / {group.permissions.length}
+                      </span>
+                    </div>
+
+                    <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {group.permissions.map((permCode) => {
+                        const permInfo = PERMISSION_DESCRIPTIONS[permCode];
+                        const isChecked = selectedPermissions.includes(permCode);
+                        const isStaffManage = permCode === 'staff:manage';
+                        const isSelf = currentUser?.email.toLowerCase() === selectedStaff.email.toLowerCase();
+                        const isSelfDisabled = isSelf && isStaffManage;
+
+                        return (
+                          <label
+                            key={permCode}
+                            className={clsx(
+                              "flex items-start gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none",
+                              isChecked
+                                ? "bg-purple-50/40 border-purple-200 text-gray-900"
+                                : "bg-white border-gray-150 hover:bg-gray-50/60 text-gray-600",
+                              isSelfDisabled && "opacity-60 cursor-not-allowed"
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={isSelfDisabled}
+                              onChange={() => handleTogglePermission(permCode)}
+                              className="mt-0.5 rounded text-purple-600 focus:ring-purple-500 border-gray-300 h-4 w-4"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-xs font-bold truncate text-gray-900">{permInfo.name}</span>
+                                <span className="text-[9px] font-mono text-gray-400 font-bold">{permCode}</span>
+                              </div>
+                              <p className="text-[10px] text-gray-500 leading-tight mt-0.5 line-clamp-2">
+                                {permInfo.description}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Self-protection / sole SuperAdmin caution note */}
+              {currentUser?.email.toLowerCase() === selectedStaff.email.toLowerCase() && (
+                <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-amber-800 font-medium leading-relaxed">
+                    You are editing your own account. For security reasons, your <code>staff:manage</code> permission cannot be revoked from this modal.
+                  </p>
+                </div>
+              )}
+
+              {/* Footer Actions */}
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-3 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsPermissionsModalOpen(false)}
+                  className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={updatePermissionsMutation.isPending}
+                    className="flex items-center gap-1.5 px-5 py-2.5 bg-himgiri-primary text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+                  >
+                    {updatePermissionsMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Save Permissions
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}

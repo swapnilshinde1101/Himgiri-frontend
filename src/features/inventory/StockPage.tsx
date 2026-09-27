@@ -28,6 +28,7 @@ import type { Item, BaseRequest } from '../../types';
 import { useGradesDropdown, useCategoriesDropdown } from '../../hooks/useMasterData';
 import { useDebounce } from '../../hooks/useDebounce';
 import EmptyState from '../../components/shared/EmptyState';
+import HasPermission from '../../components/shared/HasPermission';
 
 // Strict dropdown reason mapping to system constants
 const REASONS = [
@@ -346,14 +347,16 @@ export default function StockPage() {
                       </td>
                       <td className="px-6 py-5 text-right">
                         <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="rounded-xl border-gray-200 text-xs font-bold hover:bg-himgiri-primary hover:text-white hover:border-himgiri-primary transition-all"
-                            onClick={(e) => handleAdjustClick(item, e)}
-                          >
-                            Adjust Stock
-                          </Button>
+                          <HasPermission code="stock:adjust">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="rounded-xl border-gray-200 text-xs font-bold hover:bg-himgiri-primary hover:text-white hover:border-himgiri-primary transition-all"
+                              onClick={(e) => handleAdjustClick(item, e)}
+                            >
+                              Adjust Stock
+                            </Button>
+                          </HasPermission>
                         </div>
                       </td>
                     </tr>

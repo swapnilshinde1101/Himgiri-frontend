@@ -16,6 +16,8 @@ import { Menu, Transition } from '@headlessui/react';
 import { useQuery } from '@tanstack/react-query';
 import { inventoryService } from '../../services/inventoryService';
 
+import { usePermission } from '../shared/HasPermission';
+
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,6 +26,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, isCollapsed }: SidebarProps) {
   const user = useAuthStore((s) => s.user);
+  const { canAny } = usePermission();
 
   const { data: lowStockData } = useQuery({
     queryKey: ['lowStockCount'],
@@ -46,40 +49,50 @@ export default function Sidebar({ isOpen, onClose, isCollapsed }: SidebarProps) 
       label: 'Dashboard', 
       path: '/admin/dashboard', 
       icon: LayoutDashboard,
-      roles: ['SuperAdmin', 'InventoryManager', 'OrderManager']
+      roles: ['SuperAdmin', 'InventoryManager', 'OrderManager'],
+      permissions: []
     },
     { 
       label: 'Inventory', 
       path: '/admin/inventory', 
       icon: Package,
-      roles: ['SuperAdmin', 'InventoryManager']
+      roles: ['SuperAdmin', 'InventoryManager'],
+      permissions: ['stock:view', 'stock:inward', 'catalog:view', 'catalog:manage']
     },
     { 
       label: 'Account', 
       path: '/admin/accounts', 
       icon: Receipt,
-      roles: ['SuperAdmin', 'OrderManager']
+      roles: ['SuperAdmin', 'OrderManager'],
+      permissions: ['orders:view', 'orders:fulfill']
     },
     { 
       label: 'Report', 
       path: '/admin/reports', 
       icon: BarChart3,
-      roles: ['SuperAdmin']
+      roles: ['SuperAdmin'],
+      permissions: ['reports:accounts', 'reports:inventory', 'reports:staff_audit']
     },
     { 
       label: 'Settings', 
       path: '/admin/settings', 
       icon: Settings,
-      roles: ['SuperAdmin']
+      roles: ['SuperAdmin'],
+      permissions: ['settings:view', 'settings:manage', 'staff:manage']
     },
   ];
 
   const filteredMenu = menuItems.filter(item => {
-    if (!item.roles) return true;
     if (!user) return false;
     
+    // 1. Permission-based grant (handles custom user overrides seamlessly)
+    if (item.permissions && item.permissions.length > 0) {
+      if (canAny(item.permissions)) return true;
+    }
+    
+    // 2. Fallback to default role mapping
+    if (!item.roles) return true;
     const userRole = user.role.toString();
-    // Check if user has permission (matches string role OR numeric equivalent)
     return item.roles.some(r => 
       r === userRole || 
       (userRole === "0" && r === "SuperAdmin") ||

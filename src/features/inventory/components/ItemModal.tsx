@@ -12,6 +12,7 @@ import Button from '../../../components/shared/Button';
 import toast from 'react-hot-toast';
 import type { Item, CreateItemRequest } from '../../../types';
 import { useGradesDropdown, useCategoriesDropdown, useGstRatesDropdown } from '../../../hooks/useMasterData';
+import { usePermission } from '../../../components/shared/HasPermission';
 
 interface Props {
   isOpen: boolean;
@@ -20,6 +21,8 @@ interface Props {
 }
 
 export default function ItemModal({ isOpen, onClose, item }: Props) {
+  const { can } = usePermission();
+  const canEditPricing = can('catalog:edit_pricing');
   const queryClient = useQueryClient();
   const isEdit = !!item;
   const [uploading, setUploading] = useState(false);
@@ -441,11 +444,18 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
               )}
             </div>
 
+            {!canEditPricing && (
+              <div className="md:col-span-2 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex items-center gap-1.5">
+                <span>🔒 Pricing modification is locked for your account (requires <code>catalog:edit_pricing</code> permission).</span>
+              </div>
+            )}
+
             <Input
               label="Purchase Price"
               type="number"
               step="0.01"
               placeholder="0.00"
+              disabled={!canEditPricing}
               error={errors.purchasePrice?.message?.toString()}
               {...register('purchasePrice')}
             />
@@ -455,6 +465,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
               type="number"
               step="0.01"
               placeholder="0.00"
+              disabled={!canEditPricing}
               error={errors.price?.message?.toString()}
               {...register('price')}
             />
@@ -464,6 +475,7 @@ export default function ItemModal({ isOpen, onClose, item }: Props) {
               type="number"
               step="0.01"
               placeholder="0.00"
+              disabled={!canEditPricing}
               error={errors.mrp?.message?.toString()}
               {...register('mrp')}
             />

@@ -13,6 +13,8 @@ export interface StaffMember {
   isLockedOut: boolean;
   lockoutEnd: string | null;
   createdAt: string;
+  customPermissions?: string[] | null;
+  effectivePermissions?: string[] | null;
 }
 
 export interface CreateStaffPayload {
@@ -40,6 +42,11 @@ export const staffService = {
 
   updateStaffRole: async (id: string, role: AdminRole): Promise<ApiResponse<StaffMember>> => {
     const res = await api.patch<ApiResponse<StaffMember>>(`/staff/${id}/role`, { role });
+    return res.data;
+  },
+
+  updateStaffPermissions: async (id: string, permissions: string[] | null): Promise<ApiResponse<StaffMember>> => {
+    const res = await api.put<ApiResponse<StaffMember>>(`/staff/${id}/permissions`, { permissions });
     return res.data;
   },
 

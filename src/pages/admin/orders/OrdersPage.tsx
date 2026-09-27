@@ -6,6 +6,7 @@ import { useGradesDropdown } from '../../../hooks/useMasterData';
 import { useDebounce } from '../../../hooks/useDebounce';
 import Badge from '../../../components/shared/Badge';
 import Button from '../../../components/shared/Button';
+import HasPermission from '../../../components/shared/HasPermission';
 import toast from 'react-hot-toast';
 import { 
   Search, 
@@ -286,28 +287,30 @@ export default function OrdersPage() {
             </Button>
           </div>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={FileText}
-              isLoading={isExportingCsv}
-              onClick={handleExportCsv}
-              className="rounded-xl border-gray-200 text-xs font-bold"
-            >
-              Export CSV
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={Download}
-              isLoading={isExportingExcel}
-              onClick={handleExportExcel}
-              className="rounded-xl border-gray-200 text-xs font-bold"
-            >
-              Export Excel
-            </Button>
-          </div>
+          <HasPermission code="orders:export">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={FileText}
+                isLoading={isExportingCsv}
+                onClick={handleExportCsv}
+                className="rounded-xl border-gray-200 text-xs font-bold"
+              >
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Download}
+                isLoading={isExportingExcel}
+                onClick={handleExportExcel}
+                className="rounded-xl border-gray-200 text-xs font-bold"
+              >
+                Export Excel
+              </Button>
+            </div>
+          </HasPermission>
         </div>
       </div>
 
@@ -549,49 +552,53 @@ export default function OrdersPage() {
 
               <div className="h-4 w-px bg-gray-700 hidden sm:block" />
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button
-                  size="sm"
-                  icon={Package}
-                  isLoading={isBulkUpdating}
-                  disabled={isBulkUpdating}
-                  onClick={() => handleBulkUpdate('Packed')}
-                  className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl px-3 py-1.5 shadow-sm"
-                >
-                  Mark Packed
-                </Button>
+              <HasPermission code="orders:fulfill" fallback={
+                <span className="text-xs text-amber-400 font-medium">Status updates restricted for your account</span>
+              }>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    icon={Package}
+                    isLoading={isBulkUpdating}
+                    disabled={isBulkUpdating}
+                    onClick={() => handleBulkUpdate('Packed')}
+                    className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl px-3 py-1.5 shadow-sm"
+                  >
+                    Mark Packed
+                  </Button>
 
-                <Button
-                  size="sm"
-                  icon={Truck}
-                  isLoading={isBulkUpdating}
-                  disabled={isBulkUpdating}
-                  onClick={() => handleBulkUpdate('Dispatched')}
-                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl px-3 py-1.5 shadow-sm"
-                >
-                  Mark Dispatched
-                </Button>
+                  <Button
+                    size="sm"
+                    icon={Truck}
+                    isLoading={isBulkUpdating}
+                    disabled={isBulkUpdating}
+                    onClick={() => handleBulkUpdate('Dispatched')}
+                    className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl px-3 py-1.5 shadow-sm"
+                  >
+                    Mark Dispatched
+                  </Button>
 
-                <Button
-                  size="sm"
-                  icon={CheckSquare}
-                  isLoading={isBulkUpdating}
-                  disabled={isBulkUpdating}
-                  onClick={() => handleBulkUpdate('Delivered')}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl px-3 py-1.5 shadow-sm"
-                >
-                  Mark Delivered
-                </Button>
+                  <Button
+                    size="sm"
+                    icon={CheckSquare}
+                    isLoading={isBulkUpdating}
+                    disabled={isBulkUpdating}
+                    onClick={() => handleBulkUpdate('Delivered')}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl px-3 py-1.5 shadow-sm"
+                  >
+                    Mark Delivered
+                  </Button>
 
-                <button
-                  type="button"
-                  disabled={isBulkUpdating}
-                  onClick={() => setSelectedOrderIds([])}
-                  className="text-xs text-gray-400 hover:text-white font-bold ml-2 underline underline-offset-2 transition-colors cursor-pointer"
-                >
-                  Clear
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    disabled={isBulkUpdating}
+                    onClick={() => setSelectedOrderIds([])}
+                    className="text-xs text-gray-400 hover:text-white font-bold ml-2 underline underline-offset-2 transition-colors cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </HasPermission>
             </div>
           )}
         </div>
