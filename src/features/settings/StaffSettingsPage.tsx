@@ -254,8 +254,8 @@ export default function StaffSettingsPage(): JSX.Element {
       toast.error('All fields are required.');
       return;
     }
-    if (addPassword.trim().length < 6) {
-      toast.error('Password must be at least 6 characters.');
+    if (addPassword.trim().length < 8) {
+      toast.error('Password must be at least 8 characters.');
       return;
     }
     createMutation.mutate({
@@ -275,8 +275,8 @@ export default function StaffSettingsPage(): JSX.Element {
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStaff) return;
-    if (newPassword.trim().length < 6) {
-      toast.error('New password must be at least 6 characters.');
+    if (newPassword.trim().length < 8) {
+      toast.error('New password must be at least 8 characters.');
       return;
     }
     resetPasswordMutation.mutate({ id: selectedStaff.id, password: newPassword.trim() });
@@ -742,7 +742,7 @@ export default function StaffSettingsPage(): JSX.Element {
                 <div className="relative">
                   <input
                     type={showAddPassword ? "text" : "password"}
-                    placeholder="Min 6 characters"
+                    placeholder="Min 8 characters"
                     value={addPassword}
                     onChange={(e) => setAddPassword(e.target.value)}
                     className="w-full pl-3.5 pr-10 py-2.5 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-himgiri-primary focus:ring-2 focus:ring-himgiri-primary/20 transition-all font-mono"
@@ -873,7 +873,7 @@ export default function StaffSettingsPage(): JSX.Element {
                 <div className="relative">
                   <input
                     type={showNewPassword ? "text" : "password"}
-                    placeholder="Enter min 6 characters"
+                    placeholder="Enter min 8 characters"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full pl-3.5 pr-10 py-2.5 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-himgiri-primary focus:ring-2 focus:ring-himgiri-primary/20 transition-all font-mono"
