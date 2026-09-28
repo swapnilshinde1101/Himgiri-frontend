@@ -32,6 +32,21 @@ export default function DeliveryMapPicker({
   const mapInstanceRef = useRef<any>(null);
   const markerInstanceRef = useRef<any>(null);
 
+  // Kept in sync with the latest props on every render (not via a separate useEffect — a plain
+  // assignment during render is safe for refs and takes effect immediately, no extra render
+  // needed). The debounced reverse-geocode callback below reads these instead of closing over
+  // city/addressLine1/pincode directly: that effect intentionally only depends on [mapLocation]
+  // (re-running it on every keystroke would restart the debounce/re-fetch pointlessly), but a
+  // stale closure would mean its "is this field still empty?" check reflects whatever the props
+  // were when the pin was dropped, not what the customer may have typed in the 800ms since —
+  // risking the auto-fill silently overwriting text they just entered.
+  const cityRef = useRef(city);
+  cityRef.current = city;
+  const pincodeRef = useRef(pincode);
+  pincodeRef.current = pincode;
+  const addressLine1Ref = useRef(addressLine1);
+  addressLine1Ref.current = addressLine1;
+
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
       toast.error('Geolocation is not supported by your browser.');
@@ -212,20 +227,21 @@ export default function DeliveryMapPicker({
           const autofillFields: AddressAutofillFields = {};
           let autofilled = false;
 
-          // Auto-fill City if empty
-          if (!city.trim()) {
+          // Auto-fill City if empty (checked against the latest ref, not a stale closure value —
+          // the customer may have started typing in the 800ms since the pin was dropped)
+          if (!cityRef.current.trim()) {
             autofillFields.city = addr.city || addr.town || addr.village || addr.suburb || 'Pune';
             autofilled = true;
           }
 
           // Auto-fill Pincode if empty
-          if (!pincode.trim() && addr.postcode) {
+          if (!pincodeRef.current.trim() && addr.postcode) {
             autofillFields.pincode = addr.postcode.replace(/\s/g, '');
             autofilled = true;
           }
 
           // Auto-fill Address Line 1 if empty
-          if (!addressLine1.trim()) {
+          if (!addressLine1Ref.current.trim()) {
             const road = addr.road || addr.suburb || addr.neighbourhood || '';
             const suburb = addr.suburb || addr.county || '';
             let line1 = `${road}${road && suburb ? ', ' : ''}${suburb}`;
