@@ -44,6 +44,15 @@ export default function BulkInwardModal({ isOpen, onClose, selectedItems, onSucc
       queryClient.invalidateQueries({ queryKey: ['lowStockCount'] });
       toast.success('Selected items updated successfully');
       onSuccess();
+    },
+    onError: (error: any) => {
+      // A 409 means at least one selected item's stock changed concurrently since this modal's
+      // list was built — close it and refresh rather than leaving the admin able to retry with
+      // now-stale quantities. The specific conflict message is already shown by the global toast.
+      if (error?.response?.status === 409) {
+        queryClient.invalidateQueries({ queryKey: ['items'] });
+        onClose();
+      }
     }
   });
 

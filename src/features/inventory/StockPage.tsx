@@ -90,6 +90,18 @@ export default function StockPage() {
       toast.success('Stock adjusted successfully');
       setIsModalOpen(false);
       setSelectedItem(null);
+    },
+    onError: (error: any) => {
+      // A 409 means the item's stock changed since this modal opened (LastSeenStockQty no longer
+      // matches), so it isn't safe to just retry — that would resubmit the same stale value and
+      // guarantee another conflict. Close the modal and refresh the list so the admin sees the
+      // current stock instead of being stuck retrying against stale data. The specific "stock was
+      // modified" message is already shown by the global error toast.
+      if (error?.response?.status === 409) {
+        queryClient.invalidateQueries({ queryKey: ['items'] });
+        setIsModalOpen(false);
+        setSelectedItem(null);
+      }
     }
   });
 
